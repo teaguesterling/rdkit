@@ -1,6 +1,6 @@
 //  $Id$
 // 
-//   Copyright (C) 2002-2010 Greg Landrum and Rational Discovery LLC
+//   Copyright (C) 2002-2013 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -4234,13 +4234,30 @@ void testGitHubIssue42()
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
 
+void testGitHubIssue65()
+{
+  BOOST_LOG(rdInfoLog) << "-----------------------\n Testing Github issue 65 (kekulization of boron-containing aromatic rings)" << std::endl;
+  {
+    std::string smi= "C[B-]1=CC=CC=C1";
+    RWMol *m = SmilesToMol(smi);
+    TEST_ASSERT(m);
+    TEST_ASSERT(m->getAtomWithIdx(1)->getIsAromatic());
+    TEST_ASSERT(m->getBondWithIdx(1)->getIsAromatic());
 
+    m->debugMol(std::cerr);
+    MolOps::Kekulize(*m);
+
+    
+    delete m;
+  }
+  BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
+}
 
 int main(){
   RDLog::InitLogs();
   //boost::logging::enable_logs("rdApp.debug");
 
-#if 0
+#if 1
   test1();
   test2();
   test3();
@@ -4296,9 +4313,11 @@ int main(){
   testSFNetIssue266();
   testSFNetIssue266();
   testSFNetIssue272();
-#endif
   testGitHubIssue8();
   testGitHubIssue42();
+#endif
+  testGitHubIssue65();
+
   return 0;
 }
 

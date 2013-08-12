@@ -246,6 +246,14 @@ class MCSResult(object):
         self.completed = obj.completed
    def __nonzero__(self):
         return self.smarts is not None
+   def __repr__(self):
+       return "MCSResult(numAtoms=%d, numBonds=%d, smarts=%r, completed=%d)" % (
+           self.numAtoms, self.numBonds, self.smarts, self.completed)
+   def __str__(self):
+       msg = "MCS %r has %d atoms and %d bonds" % (self.smarts, self.numAtoms, self.numBonds)
+       if not self.completed:
+           msg += " (timed out)"
+       return msg        
 
 
 
@@ -326,7 +334,7 @@ def FindMCS(mols, minNumAtoms=2,
     >>> MCS.FindMCS(mols)
     MCSResult(numAtoms=6, numBonds=6, smarts='[#6]-1-[#6]-[#6](-[#6])-[#6]-1-[#6]', completed=1)
     >>> MCS.FindMCS(mols, ringMatchesRingOnly=True)
-    MCSResult(numAtoms=5, numBonds=5, smarts='[#6]-@1-@[#6]-@[#6]-@[#6]-@1-@[#6]', completed=1)
+    MCSResult(numAtoms=5, numBonds=5, smarts='[#6]-@1-@[#6]-@[#6](-@[#6])-@[#6]-@1', completed=1)
     >>> MCS.FindMCS(mols, completeRingsOnly=True)
     MCSResult(numAtoms=4, numBonds=4, smarts='[#6]-@1-@[#6]-@[#6]-@[#6]-@1', completed=1)
 
@@ -339,8 +347,7 @@ def FindMCS(mols, minNumAtoms=2,
 
     >>> mols = [Chem.MolFromSmiles("Nc1ccccc1"*100), Chem.MolFromSmiles("Nc1ccccccccc1"*100)]
     >>> MCS.FindMCS(mols, timeout=0.1)
-    MCSResult(numAtoms=16, numBonds=15, smarts='[#7]-[#6](:[#6](-[#7]-[#6](:[#6](
-    -[#7]-[#6]):[#6]):[#6]:[#6]:[#6]):[#6]):[#6]:[#6]:[#6]', completed=0)
+    MCSResult(..., completed=0)
 
     (The MCS after 50 seconds contained 511 atoms.)
     """
@@ -356,3 +363,20 @@ def FindMCS(mols, minNumAtoms=2,
                timeout = timeout,
         )
     return MCSResult(ores)
+
+#------------------------------------
+#
+#  doctest boilerplate
+#
+def _test():
+  import doctest,sys
+  return doctest.testmod(sys.modules["__main__"],
+                         optionflags=doctest.ELLIPSIS+doctest.NORMALIZE_WHITESPACE)
+
+
+if __name__ == '__main__':
+  import sys
+  failed,tried = _test()
+  sys.exit(failed)
+
+   
