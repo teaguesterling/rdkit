@@ -26,6 +26,10 @@
 #include <map>
 #include <boost/foreach.hpp>
 
+#ifndef M_PI
+#define M_PI           3.14159265358979323846
+#endif
+
 using namespace RDKit;
 using namespace std;
 RWMol _t;
@@ -4253,6 +4257,48 @@ void testGitHubIssue65()
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
 
+void testGitHubIssue72()
+{
+  BOOST_LOG(rdInfoLog) << "-----------------------\n Testing Github issue 72 (problems with bad benzothiazolium structure)" << std::endl;
+  {
+    std::string pathName=getenv("RDBASE");
+    pathName += "/Code/GraphMol/test_data/";
+    RWMol *m = MolFileToMol(pathName+"github72.mol");
+    TEST_ASSERT(m);
+    TEST_ASSERT(!m->getBondBetweenAtoms(0,8)->getIsAromatic());
+    TEST_ASSERT(m->getBondBetweenAtoms(1,6)->getIsAromatic());
+    delete m;
+  }
+
+  {
+    std::string pathName=getenv("RDBASE");
+    pathName += "/Code/GraphMol/test_data/";
+    RWMol *m = MolFileToMol(pathName+"github72.2.mol");
+    TEST_ASSERT(m);
+    TEST_ASSERT(m->getBondBetweenAtoms(0,8)->getIsAromatic());
+    TEST_ASSERT(m->getBondBetweenAtoms(1,6)->getIsAromatic());
+    delete m;
+  }
+  {
+    std::string pathName=getenv("RDBASE");
+    pathName += "/Code/GraphMol/test_data/";
+    RWMol *m = MolFileToMol(pathName+"github72.3.mol");
+    TEST_ASSERT(m);
+    TEST_ASSERT(!m->getBondBetweenAtoms(0,8)->getIsAromatic());
+    TEST_ASSERT(m->getBondBetweenAtoms(1,6)->getIsAromatic());
+
+    std::string smi=MolToSmiles(*m,true);
+    delete m;
+    m = SmilesToMol(smi);
+    TEST_ASSERT(m);
+
+    
+    delete m;
+  }
+
+  BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
+}
+
 int main(){
   RDLog::InitLogs();
   //boost::logging::enable_logs("rdApp.debug");
@@ -4317,6 +4363,7 @@ int main(){
   testGitHubIssue42();
 #endif
   testGitHubIssue65();
+  testGitHubIssue72();
 
   return 0;
 }
