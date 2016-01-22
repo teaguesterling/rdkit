@@ -379,7 +379,7 @@ struct filtercat_wrapper {
 
     python::register_ptr_to_python<boost::shared_ptr<FilterCatalogEntry> >();
     python::register_ptr_to_python<
-        boost::shared_ptr<const FilterCatalogEntry> >();
+        boost::shared_ptr<FilterCatalogEntry> >();
 
     python::class_<std::vector<boost::shared_ptr<const FilterCatalogEntry> > >(
         "FilterCatalogEntryList")
