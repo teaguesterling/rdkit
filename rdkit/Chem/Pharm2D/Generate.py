@@ -33,6 +33,7 @@
   numbering
 
 """
+from __future__ import print_function
 from rdkit.Chem.Pharm2D import Utils,SigFactory
 from rdkit.RDLogger import logger
 logger = logger()
@@ -44,7 +45,7 @@ def _ShortestPathsMatch(match,featureSet,sig,dMat,sigFactory):
 
   """
   if _verbose:
-    print 'match:',match
+    print('match:',match)
   nPts = len(match)
   distsToCheck =  Utils.nPointDistDict[nPts]
   nDists = len(distsToCheck)
@@ -68,15 +69,16 @@ def _ShortestPathsMatch(match,featureSet,sig,dMat,sigFactory):
     
   idx = sigFactory.GetBitIdx(featureSet,dist,sortIndices=False)
   if _verbose:
-    print '\t',dist,minD,maxD,idx
+    print('\t',dist,minD,maxD,idx)
 
   if sigFactory.useCounts:
     sig[idx] = sig[idx]+1
   else:
     sig.SetBit(idx)
+  return idx
   
 
-def Gen2DFingerprint(mol,sigFactory,perms=None,dMat=None):
+def Gen2DFingerprint(mol,sigFactory,perms=None,dMat=None,bitInfo=None):
   """ generates a 2D fingerprint for a molecule using the
    parameters in _sig_
 
@@ -93,12 +95,14 @@ def Gen2DFingerprint(mol,sigFactory,perms=None,dMat=None):
 
      - dMat: (optional) the distance matrix to be used
 
+     - bitInfo: (optional) used to return the atoms involved in the bits
+
   """
   if not isinstance(sigFactory,SigFactory.SigFactory):
-    raise ValueError,'bad factory'
+    raise ValueError('bad factory')
   featFamilies=sigFactory.GetFeatFamilies()
   if _verbose:
-    print '* feat famillies:',featFamilies
+    print('* feat famillies:',featFamilies)
   nFeats = len(featFamilies)
   minCount = sigFactory.minPointCount
   maxCount = sigFactory.maxPointCount
@@ -121,7 +125,7 @@ def Gen2DFingerprint(mol,sigFactory,perms=None,dMat=None):
   # generate the matches:
   featMatches = sigFactory.GetMolFeats(mol)
   if _verbose:
-    print '  featMatches:',featMatches
+    print('  featMatches:',featMatches)
 
   sig = sigFactory.GetSignature()
   for perm in perms:
@@ -138,8 +142,8 @@ def Gen2DFingerprint(mol,sigFactory,perms=None,dMat=None):
     #  the proto-pharmacophore.
     matchPerms = [featMatches[x] for x in perm]
     if _verbose:
-      print '\n->Perm: %s'%(str(perm))
-      print '    matchPerms: %s'%(str(matchPerms))
+      print('\n->Perm: %s'%(str(perm)))
+      print('    matchPerms: %s'%(str(matchPerms)))
     
     # Get all unique combinations of those possible matches:
     matchesToMap=Utils.GetUniqueCombinations(matchPerms,featClasses)
@@ -147,9 +151,13 @@ def Gen2DFingerprint(mol,sigFactory,perms=None,dMat=None):
       entry = [x[1] for x in entry]
       matchesToMap[i]=entry
     if _verbose:
-      print '    mtM:',matchesToMap
+      print('    mtM:',matchesToMap)
     
     for match in matchesToMap:
       if sigFactory.shortestPathsOnly:
-        _ShortestPathsMatch(match,perm,sig,dMat,sigFactory)
+        idx=_ShortestPathsMatch(match,perm,sig,dMat,sigFactory)
+        if idx is not None and bitInfo is not None:
+          l = bitInfo.get(idx,[])
+          l.append(match)
+          bitInfo[idx] = l
   return sig

@@ -37,7 +37,7 @@ def ValidateRDId(id):
     for char in entry:
       try:
         v = int(char)
-      except:
+      except ValueError:
         return 0
       accum += v
   crc = int(splitId[-1])
@@ -56,21 +56,21 @@ def RDIdToInt(id,validate=1):
   >>> try:
   ...   RDIdToInt('RDCmpd-009-000-109-8')
   ... except ValueError:
-  ...   print 'ok'
+  ...   print('ok')
   ... else:
-  ...   print 'failed'
+  ...   print('failed')
   ok
   >>> try:
   ...   RDIdToInt('bogus')
   ... except ValueError:
-  ...   print 'ok'
+  ...   print('ok')
   ... else:
-  ...   print 'failed'
+  ...   print('failed')
   ok
 
   """
   if validate and not ValidateRDId(id):
-    raise ValueError,"Bad RD Id"
+    raise ValueError("Bad RD Id")
   id = id.replace('_','-')
   terms = id.split('-')[1:-1]
   res = 0
@@ -106,14 +106,14 @@ def IndexToRDId(idx,leadText='RDCmpd'):
   >>> try:
   ...   IndexToRDId(-1)
   ... except ValueError:
-  ...   print 'ok'
+  ...   print('ok')
   ... else:
-  ...   print 'failed'
+  ...   print('failed')
   ok
 
   """
   if idx < 0:
-    raise ValueError,'indices must be >= zero'
+    raise ValueError('indices must be >= zero')
   
   res = leadText+'-'
   tmpIdx = idx
@@ -167,8 +167,7 @@ def RegisterItem(conn,table,value,columnName,data=None,
                  id='',idColName='Id',leadText='RDCmpd'):
   """
 
-  >>> dbName =  RDConfig.RDTestDatabase
-  >>> conn = DbConnect(dbName)
+  >>> conn = DbConnect(tempDbName)
   >>> tblName = 'StorageTest'
   >>> conn.AddTable(tblName,'id varchar(32) not null primary key,label varchar(40),val int')
   >>> RegisterItem(conn,tblName,'label1','label',['label1',1])==(1, 'RDCmpd-000-001-1')
@@ -209,7 +208,7 @@ def RegisterItems(conn,table,values,columnName,rows,
   """
   """
   if rows and len(rows) != len(values):
-    raise ValueError,"length mismatch between rows and values"
+    raise ValueError("length mismatch between rows and values")
   nVals = len(values)
   origOrder={}
   for i,v in enumerate(values):
@@ -279,7 +278,19 @@ def _test():
   return doctest.testmod(sys.modules["__main__"])
 
 if __name__ == '__main__':
-  import sys
+  import sys,tempfile,shutil,os
+  if RDConfig.useSqlLite:
+    tmpf,tempName = tempfile.mkstemp(suffix='sqlt')
+    tempDbName = tempName
+    shutil.copyfile(RDConfig.RDTestDatabase,tempDbName)
+  else:
+    tempDbName='::RDTests'
   failed,tried = _test()
+  if RDConfig.useSqlLite and os.path.exists(tempDbName):
+    try:
+      os.unlink(tempDbName)
+    except:
+      import traceback
+      traceback.print_exc()
   sys.exit(failed)
 

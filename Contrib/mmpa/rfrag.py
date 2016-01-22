@@ -29,10 +29,14 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Created by Jameed Hussain, July 2013
-
+#
+# Modifications and optimizations by Greg Landrum, July 2015
+# 
+from __future__ import print_function
 import sys
 import re
 from rdkit import Chem
+from rdkit.Chem import rdMMPA
 
 def find_correct(f_array):
 
@@ -146,7 +150,7 @@ def delete_bonds(smi,id,mol,bonds,out):
             isotope_track = {}
             side_chain_fragments = side_chains.split(".")
 
-            for s in xrange( len(side_chain_fragments) ):
+            for s in range( len(side_chain_fragments) ):
                 matchObj = re.search( '\[\*\:([123])\]', side_chain_fragments[s] )
                 if matchObj:
                     #add to isotope_track with key: old_isotope, value:
@@ -184,58 +188,22 @@ def fragment_mol(smi,id):
     if(mol == None):
         sys.stderr.write("Can't generate mol for: %s\n" % (smi) )
     else:
-        #SMARTS for "acyclic and not in a functional group"
-        smarts = Chem.MolFromSmarts("[#6+0;!$(*=,#[!#6])]!@!=!#[*]")
-
-        #finds the relevant bonds to break
-        #find the atoms maches
-        matching_atoms = mol.GetSubstructMatches(smarts)
-
-        total = len(matching_atoms)
-
-        #catch case where there are no bonds to fragment
-        if(total == 0):
-            output = '%s,%s,,' % (smi,id)
-            if( (output in outlines) == False ):
+        frags = rdMMPA.FragmentMol(mol,pattern="[#6+0;!$(*=,#[!#6])]!@!=!#[*]",resultsAsMols=False)
+        for core,chains in frags:
+            output = '%s,%s,%s,%s' % (smi,id,core,chains)
+            if( not (output in outlines) ):
                 outlines.add(output)
-
-        bonds_selected = []
-
-        #loop to generate every single, double and triple cut in the molecule
-        for x in xrange( total ):
-            #print matches[x]
-            bonds_selected.append(matching_atoms[x])
-            delete_bonds(smi,id,mol,bonds_selected,outlines)
-            bonds_selected = []
-
-            for y in xrange(x+1,total):
-                #print matching_atoms[x],matching_atoms[y]
-                bonds_selected.append(matching_atoms[x])
-                bonds_selected.append(matching_atoms[y])
-                delete_bonds(smi,id,mol,bonds_selected,outlines)
-                bonds_selected = []
-
-                for z in xrange(y+1, total):
-                    #print matching_atoms[x],matching_atoms[y],matching_atoms[z]
-                    bonds_selected.append(matching_atoms[x])
-                    bonds_selected.append(matching_atoms[y])
-                    bonds_selected.append(matching_atoms[z])
-                    delete_bonds(smi,id,mol,bonds_selected,outlines)
-                    bonds_selected = []
-
-            #right, we are done.
-
     return outlines
 
 if __name__=='__main__':
 
     if (len(sys.argv) >= 2):
-	print "Program that fragments a user input set of smiles.";
-	print "The program enumerates every single,double and triple acyclic single bond cuts in a molecule.\n";
-	print "USAGE: ./rfrag.py <file_of_smiles";
-	print "Format of smiles file: SMILES ID (space separated)";
-	print "Output: whole mol smiles,ID,core,context\n";
-	sys.exit(1)
+        print("Program that fragments a user input set of smiles.")
+        print("The program enumerates every single,double and triple acyclic single bond cuts in a molecule.\n")
+        print("USAGE: ./rfrag.py <file_of_smiles")
+        print("Format of smiles file: SMILES ID (space separated)")
+        print("Output: whole mol smiles,ID,core,context\n")
+        sys.exit(1)
 
     #read the STDIN
     for line in sys.stdin:
@@ -250,9 +218,21 @@ if __name__=='__main__':
         o = fragment_mol(smiles,cmpd_id)
 
         for l in o:
-            print l
+            print(l)
 
 
 
 
 
+"""
+optimization work.
+
+Original:
+~/RDKit_git/Contrib/mmpa > time head -100 ../../Data/Zinc/zim.smi | python rfrag.py > zim.frags.o
+
+real	0m9.752s
+user	0m9.704s
+sys	0m0.043s
+
+
+"""                        

@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+
 project (jGraphMolJava Java)
 
 include_directories( ${RDKit_ExternalDir} )
@@ -5,10 +7,12 @@ include_directories( ${RDKit_ExternalDir} )
 find_package(Java REQUIRED)
 find_package(JNI REQUIRED)
 
+include(UseJava)
+
 # Make sure we can access the junit.jar -- needed for compiling/running tests
-find_file(JUNIT_JAR junit.jar ${RDKit_JavaLibDir})
+find_jar(JUNIT_JAR junit PATHS ${RDKit_JavaLibDir})
 if (NOT JUNIT_JAR)
-	MESSAGE ("junit.jar is not found in ${RDKit_JavaLibDir}.  Please add it to this directory and rerun cmake.")
+	MESSAGE ("junit.jar was not found in classpath or ${RDKit_JavaLibDir}.  Please add it to this directory and rerun cmake.")
 	MESSAGE(FATAL_ERROR "Cannot find required JUnit library (junit.jar)")
 endif (NOT JUNIT_JAR)
 
@@ -20,6 +24,11 @@ if (NOT JAVADOC_EXE)
 endif (NOT JAVADOC_EXE)
 
 INCLUDE_DIRECTORIES(${JNI_INCLUDE_DIRS})
+
+# java8 raises errors while creating the documentation
+if(Java_VERSION_MAJOR GREATER 1 OR Java_VERSION_MINOR GREATER 7)
+  SET(DOCLINT_FLAGS "-Xdoclint:none")
+endif()
 
 SET_SOURCE_FILES_PROPERTIES(GraphMolJava.i PROPERTIES CPLUSPLUS ON )
 
@@ -78,7 +87,7 @@ SWIG_ADD_MODULE(GraphMolWrap "java" GraphMolJava.i )
 # as of Oct 2012 using boost 1.51 under at least ubuntu 12.04 we get a
 # link error if they aren't there.
 SWIG_LINK_LIBRARIES(GraphMolWrap ${RDKit_Wrapper_Libs}
-      ${RDKit_THREAD_LIBS})
+      ${Boost_SERIALIZATION_LIBRARY} ${RDKit_THREAD_LIBS})
 
 # code adapted from the wrapper code for
 # GDCM: http://gdcm.svn.sf.net/viewvc/gdcm/trunk/Wrapping/Java/CMakeLists.txt?view=markup
@@ -104,10 +113,10 @@ ADD_CUSTOM_COMMAND(
 
   OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/org.RDKitDoc.jar
   ## Run Javadoc against newly created .java files to create docs
-  COMMAND ${JAVADOC_EXE} -tag notes -tag example -d ${CMAKE_CURRENT_SOURCE_DIR}/doc -sourcepath ${CMAKE_CURRENT_SOURCE_DIR}/src org.RDKit
+  COMMAND ${JAVADOC_EXE}  ${DOCLINT_FLAGS} -tag notes -tag example -d ${CMAKE_CURRENT_SOURCE_DIR}/doc -sourcepath ${CMAKE_CURRENT_SOURCE_DIR}/src org.RDKit
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   ## Put the doc files into their own separate archive.
-  COMMAND ${JAVA_ARCHIVE} cf 
+  COMMAND ${JAVA_ARCHIVE} cf ${DOCLINT_FLAGS}
     ${CMAKE_CURRENT_SOURCE_DIR}/org.RDKitDoc.jar
     doc
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -136,7 +145,7 @@ endif()
 
 ADD_CUSTOM_COMMAND(
   OUTPUT ${CMAKE_JAVA_TEST_OUTDIR}/org/RDKit/WrapperTests.class
-  COMMAND ${JAVA_COMPILE} -d ${CMAKE_JAVA_TEST_OUTDIR} -cp "${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar${PATH_SEP}${JUNIT_JAR}" ${JAVA_TEST_FILES}
+  COMMAND ${JAVA_COMPILE} ${DOCLINT_FLAGS} -d ${CMAKE_JAVA_TEST_OUTDIR} -cp "${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar${PATH_SEP}${JUNIT_JAR}" ${JAVA_TEST_FILES}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar ${JAVA_TEST_FILES}
 )
@@ -149,6 +158,12 @@ ADD_CUSTOM_TARGET(RunJavaWrapperTests
   COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/runUnitTests.sh
 )
 
+# need to add boost libs for testing
+SET (CTEST_ENVIRONMENT
+  "LD_LIBRARY_PATH=${Boost_LIBRARY_DIRS}"
+  "DYLD_LIBRARY_PATH=${Boost_LIBRARY_DIRS}"
+  )
+  
 ADD_TEST(JavaAromaticTests 
     java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
 	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar"
@@ -269,6 +284,30 @@ ADD_TEST(JavaChemTransformsTests
     java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
 	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar"
 	org.RDKit.ChemTransformsTests)
+ADD_TEST(JavaFMCSTests 
+    java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
+	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar"
+	org.RDKit.FMCSTests)
+ADD_TEST(JavaPDBTests 
+    java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
+	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar"
+	org.RDKit.PDBTests)
+
+ADD_TEST(JavaAlignTests 
+    java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
+	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar"
+	org.RDKit.AlignTests)
+
+ADD_TEST(JavaMolQueryTests 
+    java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
+	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar" 
+	org.RDKit.MolQueryTests)
+
+ADD_TEST(JavaFilterCatalogTests
+    java -Djava.library.path=${CMAKE_CURRENT_SOURCE_DIR} 
+	-cp "${JUNIT_JAR}${PATH_SEP}${CMAKE_JAVA_TEST_OUTDIR}${PATH_SEP}${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar" 
+	org.RDKit.FilterCatalogTests)
+
 
 INSTALL(TARGETS GraphMolWrap 
               DESTINATION ${CMAKE_CURRENT_SOURCE_DIR} )

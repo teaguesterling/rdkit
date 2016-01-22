@@ -23,7 +23,8 @@ Postscript font names within this module, but have not yet done so.
 
 13th June 1999
 """
-import string
+from __future__ import print_function
+import string, os
 
 
 
@@ -93,7 +94,7 @@ class FontCache:
         
     def loadfont(self, fontname):
         filename = AFMDIR + os.sep + fontname + '.afm'
-        print 'cache loading',filename
+        print('cache loading', filename)
         assert os.path.exists(filename)
         widths = parseAFMfile(filename)
         self.__widtharrays[fontname] = widths
@@ -101,13 +102,13 @@ class FontCache:
     def getfont(self, fontname):
         try:
             return self.__widtharrays[fontname]
-        except:
+        except Exception:
             try:
                 self.loadfont(fontname)
                 return self.__widtharrays[fontname]
-            except:
+            except Exception:
                 # font not found, use Courier
-                print 'Font',fontname,'not found - using Courier for widths'
+                print('Font',fontname,'not found - using Courier for widths')
                 return self.getfont('courier')
     
 

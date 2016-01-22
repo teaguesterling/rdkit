@@ -16,8 +16,8 @@ import unittest,sys,os
 from rdkit import RDConfig
 from rdkit import Chem
 import tempfile
-from cStringIO import StringIO
-
+from rdkit.six.moves import cStringIO as StringIO
+from rdkit.six import next
 class TestCase(unittest.TestCase):
   def setUp(self):
     #print '\n%s: '%self.shortDescription(),
@@ -28,7 +28,7 @@ class TestCase(unittest.TestCase):
     " tests reads using a file name "
     supp = Chem.SDMolSupplier(self.fName)
     for i in range(10):
-      m = supp.next()
+      m = next(supp)
       assert m,'read %d failed'%i
       assert m.GetNumAtoms(),'no atoms in mol %d'%i
     i = 100
@@ -55,34 +55,40 @@ class TestCase(unittest.TestCase):
 
   def test_Writer(self):
     " tests writes using a file name "
-    inD = open(self.fName,'r').read()
+    with open(self.fName,'r') as inf:
+      inD = inf.read()
     supp = Chem.SDMolSupplier(self.fName)
     outName = tempfile.mktemp('.sdf')
     writer = Chem.SDWriter(outName)
-    m1 = supp.next()
+    m1 = next(supp)
     writer.SetProps(m1.GetPropNames())
     for m in supp:
       writer.write(m)
     writer.flush()
+    # The writer does not have an explicit "close()" so need to
+    # let the garbage collector kick in to close the file.
     writer = None
-    outD = open(outName,'r').read()
+    with open(outName,'r') as inf:
+      outD = inf.read()
+    # The file should be closed, but if it isn't, and this
+    # is Windows, then the unlink() can fail. Wait and try again.
     try:
       os.unlink(outName)
-    except:
+    except Exception:
       import time
       time.sleep(1)
       try:
         os.unlink(outName)
-      except:
+      except Exception:
         pass
-    assert inD.count('$$$$')==outD.count('$$$$'),'bad nMols in output'
+    self.assertEqual(inD.count('$$$$'),outD.count('$$$$'),'bad nMols in output')
 
   def _testStreamRoundtrip(self):
     inD = open(self.fName).read()
     supp = Chem.SDMolSupplier(self.fName)
     outName = tempfile.mktemp('.sdf')
     writer = Chem.SDWriter(outName)
-    m1 = supp.next()
+    m1 = next(supp)
     for m in supp:
       writer.write(m)
     writer.flush()
@@ -90,12 +96,12 @@ class TestCase(unittest.TestCase):
     outD = open(outName,'r').read()
     try:
       os.unlink(outName)
-    except:
+    except Exception:
       import time
       time.sleep(1)
       try:
         os.unlink(outName)
-      except:
+      except Exception:
         pass
     assert inD.count('$$$$')==outD.count('$$$$'),'bad nMols in output'
     io = StringIO(outD)
@@ -110,7 +116,7 @@ class TestCase(unittest.TestCase):
     supp = Chem.SDMolSupplier(self.fName)
     outName = tempfile.mktemp('.sdf')
     writer = Chem.SDWriter(outName)
-    m1 = supp.next()
+    m1 = next(supp)
     for m in supp:
       writer.write(m)
     writer.flush()
@@ -118,12 +124,12 @@ class TestCase(unittest.TestCase):
     outD = open(outName,'r').read()
     try:
       os.unlink(outName)
-    except:
+    except Exception:
       import time
       time.sleep(1)
       try:
         os.unlink(outName)
-      except:
+      except Exception:
         pass
     assert inD.count('$$$$')==outD.count('$$$$'),'bad nMols in output'
     supp = SDMolSupplier.LazySDMolSupplier(inD=outD)

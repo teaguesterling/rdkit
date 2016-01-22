@@ -29,7 +29,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Created by Jameed Hussain, September 2012
-
+from __future__ import print_function
 import sys
 import re
 from rdkit import Chem
@@ -56,22 +56,17 @@ def add_to_index(smi,attachments,cmpd_heavy):
     return result
 
 def get_symmetry_class(smi):
-
     symmetry = []
 
     m = Chem.MolFromSmiles(smi)
-
-    #determine the symmetry class
-    #see: http://www.mail-archive.com/rdkit-discuss@lists.sourceforge.net/msg01894.html
-    #A thanks to Greg (and Alan)
-    Chem.AssignStereochemistry(m,cleanIt=True,force=True,flagPossibleStereoCenters=True)
-
+    symmetry_classes = Chem.CanonicalRankAtoms(m, breakTies=False)
+    
     #get the symmetry class of the attachements points
     #Note: 1st star is the zero index,
     #2nd star is first index, etc
-    for atom in m.GetAtoms():
+    for atom, symmetry_class in zip(m.GetAtoms(), symmetry_classes):
         if(atom.GetMass() == 0):
-            symmetry.append(atom.GetProp('_CIPRank'))
+            symmetry.append(symmetry_class)
 
     return symmetry
 
@@ -411,7 +406,7 @@ if __name__=='__main__':
     elif(options.ratio != None):
         ratio = options.ratio
         if(ratio >= 1):
-            print "Ratio specified: %s. Ratio needs to be less than 1."
+            print("Ratio specified: %s. Ratio needs to be less than 1.")
             sys.exit(1)
         use_ratio = True
 
@@ -490,9 +485,9 @@ if __name__=='__main__':
         if(total == 1):
             continue
 
-        for xa in xrange(total):
+        for xa in range(total):
 
-            for xb in xrange(xa, total):
+            for xb in range(xa, total):
 
                 if(xa != xb):
                     #now generate the pairs
@@ -507,12 +502,12 @@ if __name__=='__main__':
                         if(core_a != core_b):
 
                             smirks,context = cansmirk(core_a,core_b,key)
-                            print "%s,%s,%s,%s,%s,%s" % ( id_to_smi[id_a], id_to_smi[id_b], id_a, id_b, smirks, context )
+                            print("%s,%s,%s,%s,%s,%s" % ( id_to_smi[id_a], id_to_smi[id_b], id_a, id_b, smirks, context ))
 
                             #deal with symmetry switch
                             if(options.sym == True):
                                 smirks,context = cansmirk(core_b,core_a,key)
-                                print "%s,%s,%s,%s,%s,%s" % ( id_to_smi[id_b], id_to_smi[id_a], id_b, id_a, smirks, context )
+                                print("%s,%s,%s,%s,%s,%s" % ( id_to_smi[id_b], id_to_smi[id_a], id_b, id_a, smirks, context ))
 
 
 

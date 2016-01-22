@@ -15,8 +15,10 @@ relevant... but tests are tests
 
 """
 from rdkit import RDConfig
-import unittest,cPickle,os
+import unittest,os
+from rdkit.six.moves import cPickle
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 def feq(n1,n2,tol=1e-4):
   return abs(n1-n2)<=tol
@@ -89,6 +91,17 @@ class TestCase(unittest.TestCase):
     at = mol.GetAtomWithIdx(5)
     assert at.GetTotalNumHs()==1,'bad H count'
     assert at.GetHybridization()==Chem.HybridizationType.SP2,'bad hyb'
+
+  def testGithub112(self):
+    """
+    problems with AllChem.GetBestRMS() and molecules with Hs
+    
+    """
+    m0 = Chem.MolFromMolFile(os.path.join(RDConfig.RDCodeDir,'Chem','test_data','github112_tgt.mol'),removeHs=False)
+    m1 = Chem.MolFromMolFile(os.path.join(RDConfig.RDCodeDir,'Chem','test_data','github112_qry.mol'),removeHs=False)
+    rms = AllChem.GetBestRMS(m0,m1)
+    self.assertAlmostEqual(rms,0.456,3)
+
 
 
 if __name__ == '__main__':

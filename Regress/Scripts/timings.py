@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time,gzip,random,os,sys
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -14,7 +15,7 @@ if len(sys.argv)>1:
         tests[x] = 1
 ts = []
 
-sdData = gzip.open('../Data/mols.1000.sdf.gz','rb').read()
+sdData = gzip.open('../Data/mols.1000.sdf.gz','rt').read()
 logger.info('mols from sdf')
 suppl = Chem.SDMolSupplier()
 suppl.SetData(sdData)
@@ -33,7 +34,7 @@ logger.info('Results1: %.2f seconds, %d passed, %d failed'%(t2-t1,nMols,nBad))
 ts.append(t2-t1)
 
 if tests[2]:
-    lines = gzip.open('../Data/mols.1000.txt.gz','rb').readlines()
+    lines = gzip.open('../Data/mols.1000.txt.gz','rt').readlines()
     logger.info('mols from smiles')
     nMols=0
     nBad=0
@@ -50,7 +51,7 @@ if tests[2]:
     ts.append(t2-t1)
 
 if tests[3] or tests[4] or tests[5]:
-    pattData = gzip.open('../Data/queries.txt.gz','rb').readlines()
+    pattData = gzip.open('../Data/queries.txt.gz','rt').readlines()
     pattData = [x.strip().replace('[H]','').replace('()','') for x in pattData]
     logger.info('patterns from smiles')
     patts = []
@@ -93,7 +94,7 @@ if tests[6] or tests[7] or tests[8]:
     logger.info('reading SMARTS')
     patts=[]
     t1=time.time()
-    for line in file('../Data/RLewis_smarts.txt'):
+    for line in open('../Data/RLewis_smarts.txt'):
         line = line.strip()
         if line=='' or line[0]=='#':
             continue
@@ -167,22 +168,23 @@ if tests[13]:
     t1=time.time()
     nBad=0
     for mol in mols:
-        cid=AllChem.EmbedMolecule(mol)
+        cid=AllChem.EmbedMolecule(mol,randomSeed=0xF00D)
         if cid<0: nBad+=1
     t2 = time.time()
     logger.info('Results13: %.2f seconds %d failures'%(t2-t1,nBad))
     ts.append(t2-t1)
 
 if tests[14]:
-    logger.info('Optimizing those:')
+    logger.info('UFF optimizing those:')
     t1=time.time()
     for mol in mols:
         if not mol.GetNumConformers(): continue
+        mol = Chem.Mol(mol)
         needMore=1
         while needMore:
             needMore=AllChem.UFFOptimizeMolecule(mol,maxIters=200)
     t2 = time.time()
-    logger.info('Results13: %.2f seconds'%(t2-t1))
+    logger.info('Results14: %.2f seconds'%(t2-t1))
     ts.append(t2-t1)
 
 if tests[15]:
@@ -191,7 +193,7 @@ if tests[15]:
     for mol in mols:
         Chem.FindUniqueSubgraphsOfLengthN(mol,6)
     t2 = time.time()
-    logger.info('Results14: %.2f seconds'%(t2-t1))
+    logger.info('Results15: %.2f seconds'%(t2-t1))
     ts.append(t2-t1)
 
 if tests[16]:
@@ -200,10 +202,28 @@ if tests[16]:
     for mol in mols:
         Chem.RDKFingerprint(mol)
     t2 = time.time()
-    logger.info('Results15: %.2f seconds'%(t2-t1))
+    logger.info('Results16: %.2f seconds'%(t2-t1))
+    ts.append(t2-t1)
+
+if tests[17]:
+    logger.info('MMFF optimizing the molecules:')
+    t1=time.time()
+    for i,mol in enumerate(mols):
+        mol = Chem.Mol(mol)
+        if not mol.GetNumConformers(): continue
+        if not AllChem.MMFFHasAllMoleculeParams(mol): continue
+        needMore=1
+        while needMore:
+            try:
+                needMore=AllChem.MMFFOptimizeMolecule(mol,maxIters=200)
+            except ValueError:
+                logger.warning('Problems with MMFF and mol %d'%i)
+                break
+    t2 = time.time()
+    logger.info('Results17: %.2f seconds'%(t2-t1))
     ts.append(t2-t1)
 
 
     
 
-print 'times: ',' || '.join(['%.1f'%x for x in ts])
+print('times: ',' || '.join(['%.1f'%x for x in ts]))

@@ -23,7 +23,8 @@ from rdkit.Dbase import DbInfo,DbUtils
 from rdkit.ML.Data import DataUtils
 from rdkit.ML.Cluster import Clusters
 from rdkit.ML.Cluster import Murtagh
-import sys,cPickle
+import sys
+from rdkit.six.moves import cPickle
 from rdkit.Chem.Fingerprints import FingerprintMols,MolSimilarity
 from rdkit import DataStructs
 import numpy
@@ -85,7 +86,7 @@ def ClusterPoints(data,metric,algorithmId,haveLabels=False,haveActs=True,returnD
     if acts:
       try:
         pt.SetData(int(acts[idx]))
-      except:
+      except Exception:
         pass
   if not returnDistances:
     return clustTree

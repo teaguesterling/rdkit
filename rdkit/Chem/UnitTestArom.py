@@ -11,8 +11,10 @@
 """unit testing code for the Crippen clogp and MR calculators
 
 """
+from __future__ import print_function
 from rdkit import RDConfig
-import unittest,sys,os,cPickle
+import unittest,sys,os
+from rdkit.six.moves import cPickle
 from rdkit import Chem
 from rdkit.Chem import Crippen
 
@@ -42,13 +44,10 @@ class TestCase(unittest.TestCase):
     nFailed = 0
     for i in range(nMols):
       lineNo,smi,smi2,tgtCount,tgtAts = self.data[i]
-      try:
-        mol = Chem.MolFromSmiles(smi)
-        if not mol: raise ValueError
-      except:
-        mol = None
-        print 'failure(%d): '%lineNo,smi
-        print '-----------------------------'
+      mol = Chem.MolFromSmiles(smi)
+      if mol is None:
+        print('failure(%d): '%lineNo,smi)
+        print('-----------------------------')
       else:
         count = 0
         aroms = []
@@ -57,11 +56,11 @@ class TestCase(unittest.TestCase):
             aroms.append(at.GetIdx())
             count+=1
         if count != tgtCount:
-          print 'Fail(%d): %s, %s'%(lineNo,smi,Chem.MolToSmiles(mol))
-          print '\t %d != %d'%(count,tgtCount)
-          print '\t ',repr(aroms)
-          print '\t ',repr(tgtAts)
-          print '-----------------------------'
+          print('Fail(%d): %s, %s'%(lineNo,smi,Chem.MolToSmiles(mol)))
+          print('\t %d != %d'%(count,tgtCount))
+          print('\t ',repr(aroms))
+          print('\t ',repr(tgtAts))
+          print('-----------------------------')
           nFailed += 1
           if nFailed >= maxFailures:
             assert 0
@@ -73,13 +72,10 @@ class TestCase(unittest.TestCase):
     nFailed = 0
     for i in range(nMols):
       lineNo,smi,smi2,tgtCount,tgtAts = self.data[i]
-      try:
-        mol = Chem.MolFromSmiles(smi)
-        if not mol: raise ValueError
-      except:
-        mol = None
-        print 'failure(%d): '%lineNo,smi
-        print '-----------------------------'
+      mol = Chem.MolFromSmiles(smi)
+      if mol is None:
+        print('failure(%d): '%lineNo,smi)
+        print('-----------------------------')
       else:
         count = 0
         aroms = []
@@ -88,11 +84,11 @@ class TestCase(unittest.TestCase):
             aroms.append(at.GetIdx())
             count+=1
         if count != tgtCount:
-          print 'Fail(%d): %s, %s'%(lineNo,smi,Chem.MolToSmiles(mol))
-          print '\t %d != %d'%(count,tgtCount)
-          print '\t ',repr(aroms)
-          print '\t ',repr(tgtAts)
-          print '-----------------------------'
+          print('Fail(%d): %s, %s'%(lineNo,smi,Chem.MolToSmiles(mol)))
+          print('\t %d != %d'%(count,tgtCount))
+          print('\t ',repr(aroms))
+          print('\t ',repr(tgtAts))
+          print('-----------------------------')
           nFailed += 1
           if nFailed >= maxFailures:
             assert 0

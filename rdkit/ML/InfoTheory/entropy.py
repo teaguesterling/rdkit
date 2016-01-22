@@ -11,14 +11,15 @@
 import numpy
 import math
 
+from rdkit.six.moves import xrange
+
 # try to get the C versions of these routines
 try:
-  import rdInfoTheory as cEntropy
-except:
+  import rdkit.ML.InfoTheory.rdInfoTheory as cEntropy
+except ImportError:
   hascEntropy=0
 else:
   hascEntropy=1
-
 
 # it's pretty obvious what this is for ;-)
 _log2 = math.log(2)

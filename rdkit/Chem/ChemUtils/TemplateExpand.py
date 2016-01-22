@@ -3,6 +3,7 @@
 #  Created by Greg Landrum August, 2006
 #
 #
+from __future__ import print_function
 from rdkit import RDLogger as logging
 logger = logging.logger()
 logger.setLevel(logging.INFO)
@@ -75,11 +76,10 @@ Usage: TemplateExpand [options] template <sidechains>
 
 """
 def Usage():
-  import sys
-  print >>sys.stderr,_usage
+  print(_usage, file=sys.stderr)
   sys.exit(-1)
 
- 
+#pylint: disable=C0111,C0103,C0322,C0324,C0323
 nDumped=0 
 def _exploder(mol,depth,sidechains,core,chainIndices,autoNames=True,templateName='',
               resetCounter=True,do3D=False,useTethers=False):
@@ -111,12 +111,12 @@ def _exploder(mol,depth,sidechains,core,chainIndices,autoNames=True,templateName
           if r.HasSubstructMatch(core):
             try:
               AlignDepict(r,core)
-            except:
+            except Exception:
               import traceback
               traceback.print_exc()
-              print >>sys.stderr,Chem.MolToSmiles(r)
+              print(Chem.MolToSmiles(r), file=sys.stderr)
           else:
-            print >>sys.stderr,'>>> no match'
+            print('>>> no match', file=sys.stderr)
             AllChem.Compute2DCoords(r)
         else:
           r = Chem.AddHs(r)
@@ -162,8 +162,8 @@ def Explode(template,sidechains,outF,autoNames=True,do3D=False,useTethers=False)
                        templateName=templateName,do3D=do3D,useTethers=useTethers):
     outF.write(Chem.MolToMolBlock(mol))
     for pN in mol.GetPropNames():
-      print >>outF,'>  <%s>\n%s\n'%(pN,mol.GetProp(pN))
-    print >>outF,'$$$$'
+      print('>  <%s>\n%s\n'%(pN,mol.GetProp(pN)), file=outF)
+    print('$$$$', file=outF)
 
 def MoveDummyNeighborsToBeginning(mol,useAll=False):
   dummyPatt=Chem.MolFromSmiles('[*]')
@@ -188,9 +188,8 @@ def MoveDummyNeighborsToBeginning(mol,useAll=False):
 
 def ConstructSidechains(suppl,sma=None,replace=True,useAll=False):
   if sma:
-    try:
-      patt = Chem.MolFromSmarts(sma)
-    except:
+    patt = Chem.MolFromSmarts(sma)
+    if patt is None:
       logger.error('could not construct pattern from smarts: %s'%sma,
                    exc_info=True)
       return None
@@ -245,8 +244,8 @@ def ConstructSidechains(suppl,sma=None,replace=True,useAll=False):
   return res
 
 if __name__=='__main__':
-  import getopt,sys
-  print >>sys.stderr,_greet
+  import getopt
+  print(_greet, file=sys.stderr)
   
   try:
     args,extras = getopt.getopt(sys.argv[1:],'o:h',[
@@ -264,7 +263,7 @@ if __name__=='__main__':
       'tethers',
       'tether',
       ])
-  except:
+  except Exception:
     import traceback
     traceback.print_exc()
     Usage()
@@ -313,19 +312,19 @@ if __name__=='__main__':
 
   if do3D:
     if not molTemplate:
-      raise ValueError,'the --3D option is only useable in combination with --moltemplate'
+      raise ValueError('the --3D option is only useable in combination with --moltemplate')
     if redrawTemplate:
       logger.warning('--redrawTemplate does not make sense in combination with --molTemplate. removing it')
       redrawTemplate=False
 
     
   if templateSmarts:
-    splitL = templateSmarts.split(' ')
+    splitL = templateSmarts.split(' ')   #pylint: disable=E1103
     templateSmarts = []
     for i,sma in enumerate(splitL):
       patt = Chem.MolFromSmarts(sma)
       if not patt:
-        raise ValueError,'could not convert smarts "%s" to a query'%sma
+        raise ValueError('could not convert smarts "%s" to a query'%sma)
       if i>=4:
         i+=1
       replace = Chem.MolFromSmiles('[%d*]'%(i+1))
@@ -336,7 +335,7 @@ if __name__=='__main__':
     try:
       s = Chem.SDMolSupplier(extras[0],removeHs=removeHs)
       templates = [x for x in s]
-    except:
+    except Exception:
       logger.error('Could not construct templates from input file: %s'%extras[0],
                    exc_info=True)
       sys.exit(1)
@@ -347,7 +346,7 @@ if __name__=='__main__':
     if not smilesFileTemplate:
       try:
         templates = [Chem.MolFromSmiles(extras[0])]
-      except:
+      except Exception:
         logger.error('Could not construct template from smiles: %s'%extras[0],
                      exc_info=True)
         sys.exit(1)
@@ -355,7 +354,7 @@ if __name__=='__main__':
       try:
         s = Chem.SmilesMolSupplier(extras[0],titleLine=False)
         templates = [x for x in s]
-      except:
+      except Exception:
         logger.error('Could not construct templates from input file: %s'%extras[0],
                      exc_info=True)
         sys.exit(1)
@@ -397,7 +396,7 @@ if __name__=='__main__':
     if sdLigands:
       try:
         suppl = Chem.SDMolSupplier(dat)
-      except:
+      except Exception:
         logger.error('could not construct supplier from SD file: %s'%dat,
                      exc_info=True)
         suppl = []
@@ -410,7 +409,7 @@ if __name__=='__main__':
         nmCol=1
       try:
         suppl = Chem.SmilesMolSupplier(dat,nameColumn=nmCol)
-      except:
+      except Exception:
         logger.error('could not construct supplier from smiles file: %s'%dat,
                      exc_info=True)
         suppl = []
@@ -423,12 +422,12 @@ if __name__=='__main__':
     count *= len(chain)
   count *= len(templates)
   if not sidechains or not count:
-    print >>sys.stderr,"No molecules to be generated."
+    print("No molecules to be generated.", file=sys.stderr)
     sys.exit(0)
 
   if not forceIt and count>tooLong:
-    print >>sys.stderr,"This will generate %d molecules."%count
-    print >>sys.stderr,"Continue anyway? [no] ",
+    print("This will generate %d molecules."%count, file=sys.stderr)
+    print("Continue anyway? [no] ", file=sys.stderr, end='')
     sys.stderr.flush()
     ans = sys.stdin.readline().strip()
     if ans not in ('y','yes','Y','YES'):

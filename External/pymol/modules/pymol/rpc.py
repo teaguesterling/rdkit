@@ -13,6 +13,7 @@
  
   RD Version: $Rev$            
 """
+from __future__ import print_function
 import SimpleXMLRPCServer
 import threading,sys,time,types,os,tempfile
 from pymol import cmd,cgo
@@ -251,7 +252,7 @@ def rpcShow(objs):
   for objName in objs:
     try:
       cmd.enable(objName)
-    except:
+    except Exception:
       res = 0
       break
     else:
@@ -266,7 +267,7 @@ def rpcHide(objs):
   for objName in objs:
     try:
       cmd.disable(objName)
-    except:
+    except Exception:
       res = 0
       break
     else:
@@ -277,7 +278,7 @@ def rpcDeleteObject(objName):
   """ deletes an object """
   try:
     cmd.delete(objName)
-  except:
+  except Exception:
     res = 0
   else:
     res = 1
@@ -557,12 +558,12 @@ def launch_XMLRPC(hostname='',port=_xmlPort,nToTry=_nPortsToTry):
   for i in range(nToTry):
     try:
       serv = SimpleXMLRPCServer.SimpleXMLRPCServer((hostname,port+i),logRequests=0)
-    except:
+    except Exception:
       serv = None
     else:
       break
   if serv:
-    print 'xml-rpc server running on host %s, port %d'%(hostname,port+i)
+    print('xml-rpc server running on host %s, port %d'%(hostname,port+i))
     serv.register_function(rpcCmd,'do')
     serv.register_function(rpcQuit,'quit')
     serv.register_function(rpcSet,'set')
@@ -599,5 +600,5 @@ def launch_XMLRPC(hostname='',port=_xmlPort,nToTry=_nPortsToTry):
     t.setDaemon(1)
     t.start()
   else:
-    print 'xml-rpc server could not be started'
+    print('xml-rpc server could not be started')
     

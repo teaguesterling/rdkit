@@ -57,25 +57,27 @@ class SaltRemover(object):
     >>> remover = SaltRemover(defnData="[Cl,Br]")
     >>> len(remover.salts)
     1
+
+    >>> remover = SaltRemover(defnData="[Cl,fail]")
+    Traceback (most recent call last):
+      ...
+    ValueError: [Cl,fail]
     
     """
     whitespace = re.compile(r'[\t ]+')
     if self.defnData:
-      from cStringIO import StringIO
+      from rdkit.six.moves import cStringIO as StringIO
       inF = StringIO(self.defnData)
     else:
-      inF = file(self.defnFilename,'r')
+      inF = open(self.defnFilename,'r')
     self.salts = []
     for line in inF:
       line = line.strip().split('//')[0]
       if line:
         splitL = whitespace.split(line)
-        try:
-          salt = Chem.MolFromSmarts(splitL[0])
-        except:
-          import traceback
-          traceback.print_exc()
-          raise ValueError,line
+        salt = Chem.MolFromSmarts(splitL[0])
+        if salt is None:
+          raise ValueError(line)
         self.salts.append(salt)
 
   def StripMol(self,mol,dontRemoveEverything=False):

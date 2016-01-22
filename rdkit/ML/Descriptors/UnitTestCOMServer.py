@@ -5,6 +5,7 @@
 """ unit testing code for the descriptor COM server
 
 """
+from __future__ import print_function
 from rdkit import RDConfig
 import unittest
 import Parser
@@ -13,24 +14,16 @@ from Numeric import *
 
 class TestCase(unittest.TestCase):
   def setUp(self):
-    print '\n%s: '%self.shortDescription(),
-  def testConnect(self):
+    print('\n%s: '%self.shortDescription(),end='')
+  def testConnectToCOMServer(self):
     " testing connection "
-    ok = 1
-    try:
-      c = Dispatch('RD.DescCalc')
-    except:
-      ok = 0
-    assert ok and c is not None, 'connection to COM server failed'
-  def testLoad(self):
+    Dispatch('RD.DescCalc')
+
+  def testLoadCalculator(self):
     " testing load "
     c = Dispatch('RD.DescCalc')
-    ok = 1
-    try:
-      c.LoadCalculator(RDConfig.RDCodeDir+'/ml/descriptors/test_data/ferro.dsc')
-    except:
-      ok = 0
-    assert ok, 'LoadCalculator failed'
+    c.LoadCalculator(RDConfig.RDCodeDir+'/ml/descriptors/test_data/ferro.dsc')
+
   def testNames(self):
     " testing GetDescriptorNames "
     c = Dispatch('RD.DescCalc')
@@ -48,11 +41,9 @@ class TestCase(unittest.TestCase):
              'IsFerromagnetic']
     c = Dispatch('RD.DescCalc')
     c.LoadCalculator(RDConfig.RDCodeDir+'/ml/descriptors/test_data/ferro.dsc')
-    ok = 1
     descVect = array(c.CalcDescriptors(argV,nameV))
     expected = array((3.67481803894, 1, 0, 1, 0.619669341609, 14.523874905))
     diffV = abs(descVect-expected)
-    assert ok, 'CalcDescriptors failed'
     assert max(diffV)<0.0001,'bad descriptors: %s, %s'%(str(expected),str(descVect))
     
 def TestSuite():

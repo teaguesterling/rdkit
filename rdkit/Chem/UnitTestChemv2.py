@@ -11,8 +11,9 @@
 """basic unit testing code for the rdkit Boost wrapper
 
 """
+import unittest,os
+from rdkit.six.moves import cPickle
 from rdkit import RDConfig
-import unittest,cPickle,os
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -142,7 +143,7 @@ class TestCase(unittest.TestCase):
     m = Chem.MolFromSmiles('CCOC')
     try:
       m.SetProp('foo','3')
-    except:
+    except Exception:
       ok=0
     else:
       ok=1
@@ -150,7 +151,7 @@ class TestCase(unittest.TestCase):
 
     try:
       v = m.GetProp('foo')
-    except:
+    except Exception:
       ok=0
     else:
       ok=1
@@ -161,7 +162,7 @@ class TestCase(unittest.TestCase):
       v = m.GetProp('monkey')
     except KeyError:
       ok=1
-    except:
+    except Exception:
       ok=0
     else:
       ok=0
@@ -171,10 +172,10 @@ class TestCase(unittest.TestCase):
     m = Chem.MolFromSmiles('C[C@H]1CO1')
     AllChem.Compute2DCoords(m)
     Chem.WedgeMolBonds(m,m.GetConformer())
-    self.failUnless(m.GetBondWithIdx(0).GetBondDir()==Chem.rdchem.BondDir.BEGINDASH)
-    self.failUnless(m.GetBondWithIdx(1).GetBondDir()==Chem.rdchem.BondDir.NONE)                              
-    self.failUnless(m.GetBondWithIdx(2).GetBondDir()==Chem.rdchem.BondDir.NONE)                              
-    self.failUnless(m.GetBondWithIdx(3).GetBondDir()==Chem.rdchem.BondDir.NONE)
+    self.assertTrue(m.GetBondWithIdx(0).GetBondDir()==Chem.rdchem.BondDir.BEGINDASH)
+    self.assertTrue(m.GetBondWithIdx(1).GetBondDir()==Chem.rdchem.BondDir.NONE)                              
+    self.assertTrue(m.GetBondWithIdx(2).GetBondDir()==Chem.rdchem.BondDir.NONE)                              
+    self.assertTrue(m.GetBondWithIdx(3).GetBondDir()==Chem.rdchem.BondDir.NONE)
     
 
 if __name__ == '__main__':

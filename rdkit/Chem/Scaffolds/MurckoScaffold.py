@@ -32,7 +32,7 @@ def MakeScaffoldGeneric(mol):
   'CC1(C)CC1'
 
   """
-  res = Chem.Mol(mol.ToBinary())
+  res = Chem.Mol(mol)
   for atom in res.GetAtoms():
     if atom.GetAtomicNum()!=1:
       atom.SetAtomicNum(6)
@@ -122,7 +122,7 @@ def MurckoScaffoldSmiles(smiles=None, mol=None, includeChirality=False):
   else:
     mol = mol
   if mol is None:
-    raise ValueError,'No molecule provided'
+    raise ValueError('No molecule provided')
   scaffold = GetScaffoldForMol(mol)
   if not scaffold: return None
   return Chem.MolToSmiles(scaffold,includeChirality)

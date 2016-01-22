@@ -16,7 +16,7 @@ Code factoring and pil image support by Jeffrey Kunce
 
 see also piddleWxDcDemo.py
 '''
-import exceptions
+from __future__ import print_function
 from wxPython.wx import *
 from rdkit.sping import pid as sping_pid
 
@@ -58,7 +58,7 @@ class PiddleWxDc(sping_pid.Canvas):
           if default_color is not None:
             return self._getWXbrush(default_color)
           else:
-            raise WxCanvasError,"Cannot create brush."
+            raise WxCanvasError("Cannot create brush.")
 
         return wxBrush(wxcolor)
 
@@ -77,7 +77,7 @@ class PiddleWxDc(sping_pid.Canvas):
           if default_color is not None:
             return self._getWXpen(width, default_color)
           else:
-            raise WxCanvasError, "Cannot create pen."
+            raise WxCanvasError("Cannot create pen.")
 
         return wxPen(wxcolor, width)
 
@@ -262,11 +262,11 @@ class PiddleWxDc(sping_pid.Canvas):
         try:
             from PIL import Image
         except ImportError:
-            print 'PIL not installed as package'
+            print('PIL not installed as package')
             try:
                 import Image
             except ImportError:
-                raise RuntimeError,"PIL not available!"
+                raise RuntimeError("PIL not available!")
 
         if (x2 and y2 and x2>x1 and y2>y1):
             imgPil = image.resize((x2-x1,y2-y1))
@@ -274,7 +274,7 @@ class PiddleWxDc(sping_pid.Canvas):
             imgPil = image
         if (imgPil.mode!='RGB'):
             imgPil = imgPil.convert('RGB')
-        imgData = imgPil.tostring('raw','RGB')
+        imgData = getattr(imgPil, 'tobytes', imgPil.tostring)('raw','RGB')
         imgWx = wxEmptyImage(imgPil.size[0],imgPil.size[1])
         imgWx.SetData(imgData)
         self.dc.DrawBitmap(imgWx.ConvertToBitmap(), x1, y1)

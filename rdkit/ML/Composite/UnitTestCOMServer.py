@@ -3,6 +3,7 @@
 #
 
 # unit testing code for the composite model COM server
+from __future__ import print_function
 from rdkit import RDConfig
 import unittest
 from rdkit.ML.Composite import Composite
@@ -11,13 +12,13 @@ from Numeric import *
 
 class TestCase(unittest.TestCase):
   def setUp(self):
-    print '\n%s: '%self.shortDescription(),
+    print('\n%s: '%self.shortDescription(),end='')
   def testConnect(self):
     " connecting to COM server "
     ok = 1
     try:
       c = Dispatch('RD.Composite')
-    except:
+    except Exception:
       ok = 0
     assert ok and c is not None, 'connection to COM server failed'
   def testLoad(self):
@@ -26,7 +27,7 @@ class TestCase(unittest.TestCase):
     ok = 1
     try:
       c.LoadComposite(RDConfig.RDCodeDir+'/ml/composite/test_data/composite_base.pkl')
-    except:
+    except Exception:
       ok = 0
     assert ok, 'LoadComposite failed'
   def testNames(self):
@@ -45,7 +46,7 @@ class TestCase(unittest.TestCase):
     ok = 1
     try:
       c.SetInputOrder(names)
-    except:
+    except Exception:
       ok = 0
     assert ok,'SetInputOrder failed'
 

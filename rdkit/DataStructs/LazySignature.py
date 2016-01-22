@@ -13,7 +13,7 @@ class LazySig:
 
     """
     if sigSize<=0:
-      raise ValueError,'zero size'
+      raise ValueError('zero size')
     self.computeFunc=computeFunc
     self.size=sigSize
     self._cache={}
@@ -57,9 +57,9 @@ class LazySig:
       which = self.size+which
     
     if which<=0 or which>=self.size:
-      raise IndexError,'bad index'
+      raise IndexError('bad index')
     
-    if self._cache.has_key(which):
+    if which in self._cache:
       v= self._cache[which]
     else:
       v = self.computeFunc(which)

@@ -63,7 +63,10 @@
  - --nBits=-1: specify the maximum number of bits to show details for
 
 """
-import sys,os,cPickle
+from __future__ import print_function
+import sys,os
+from rdkit.six.moves import cPickle  #@UnresolvedImport #pylint: disable=F0401
+from rdkit.six import next
 from rdkit import Chem
 from rdkit import RDConfig
 from rdkit.Chem import FragmentCatalog
@@ -230,7 +233,7 @@ def ScoreFromLists(bitLists,suppl,catalog,maxPts=-1,actName='',acts=None,
     actName = suppl[0].GetPropNames()[-1]
   suppl.reset()
   for i in range(1,nPts+1):
-    mol = suppl.next()
+    mol = next(suppl)
     if not acts:
       act = int(mol.GetProp(actName))
     else:
@@ -284,7 +287,7 @@ def CalcGains(suppl,catalog,topN=-1,actName='',acts=None,
       except KeyError:
         message('ERROR: Molecule has no property: %s\n'%(actName))
         message('\tAvailable properties are: %s\n'%(str(mol.GetPropNames())))
-        raise KeyError,actName
+        raise KeyError(actName)
     else:
       act = acts[i]
     if i and not i%reportFreq:
@@ -330,7 +333,7 @@ def CalcGainsFromFps(suppl,fps,topN=-1,actName='',acts=None,
       except KeyError:
         message('ERROR: Molecule has no property: %s\n'%(actName))
         message('\tAvailable properties are: %s\n'%(str(mol.GetPropNames())))
-        raise KeyError,actName
+        raise KeyError(actName)
     else:
       act = acts[i]
     if i and not i%reportFreq:
@@ -404,23 +407,23 @@ def SupplierFromDetails(details):
                              titleLine=details.hasTitle)
     if type(details.actCol)==types.IntType:
       suppl.reset()
-      m = suppl.next()
+      m = next(suppl)
       actName = m.GetPropNames()[details.actCol]
       details.actCol = actName
     if type(details.nameCol)==types.IntType:
       suppl.reset()
-      m = suppl.next()
+      m = next(suppl)
       nameName = m.GetPropNames()[details.nameCol]
       details.nameCol = nameName
       suppl.reset()
   if type(details.actCol)==types.IntType:
     suppl.reset()
-    m = suppl.next()
+    m = next(suppl)
     actName = m.GetPropNames()[details.actCol]
     details.actCol = actName
   if type(details.nameCol)==types.IntType:
     suppl.reset()
-    m = suppl.next()
+    m = next(suppl)
     nameName = m.GetPropNames()[details.nameCol]
     details.nameCol = nameName
     suppl.reset()
@@ -428,9 +431,9 @@ def SupplierFromDetails(details):
 
 
 def Usage():
-  print "This is BuildFragmentCatalog version %s"%(__VERSION_STRING)
-  print 'usage error'
-  #print __doc__
+  print("This is BuildFragmentCatalog version %s"%(__VERSION_STRING))
+  print('usage error')
+  #print(__doc__)
   sys.exit(-1)
 
 class RunDetails(object):
@@ -470,7 +473,7 @@ def ParseArgs(details):
                                  'minPath=','maxPath=','smiCol=','actCol=','nameCol=','nActs=',
                                  'nBits=','biasList=','topN=',
                                  'build','sigs','gains','details','score','noTitle'])
-  except:
+  except Exception:
     sys.stderr.write('Error parsing command line:\n')
     import traceback
     traceback.print_exc()
@@ -553,7 +556,7 @@ if __name__=='__main__':
   import time
   details = RunDetails()
   ParseArgs(details)
-  from cStringIO import StringIO
+  from io import StringIO
   suppl = SupplierFromDetails(details)
 
   cat = None
@@ -577,7 +580,7 @@ if __name__=='__main__':
     if details.onBitsName:
       try:
         obls = cPickle.load(open(details.onBitsName,'rb'))
-      except:
+      except Exception:
         obls = None
       else:
         if len(obls)<(inD.count('\n')-1):

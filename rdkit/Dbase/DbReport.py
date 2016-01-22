@@ -8,6 +8,7 @@
 #  which is included in the file license.txt, found at the root
 #  of the RDKit source tree.
 #
+from __future__ import print_function
 try:
   from reportlab import platypus
 except ImportError:
@@ -64,7 +65,7 @@ else:
     def __call__(self,arg):
       res = list(arg)
       if self.verbose:
-        print 'Render:',res[0]
+        print('Render:',res[0])
       if hasCDX:
         smi = res[self.smiCol]
         tmpName = self.tempHandler.get('.jpg')
@@ -77,7 +78,7 @@ else:
           img.drawWidth = self.width
           img.drawHeight = aspect*self.width
           res[self.smiCol] = img
-        except:
+        except Exception:
           import traceback
           traceback.print_exc()
           res[self.smiCol] = 'Failed'
@@ -106,7 +107,7 @@ else:
           img = platypus.Image(tmpName)
           img.drawWidth = self.width
           img.drawHeight = aspect*self.width
-        except:
+        except Exception:
           ok = 0
       if ok:
         res[self.smiCol] = img
@@ -143,7 +144,7 @@ else:
           rdDepictor.Compute2DCoords(mol)
         drawing.AddMol(mol,canvas=canv)
         ok = True
-      except:
+      except Exception:
         if self.verbose:
           import traceback
           traceback.print_exc()
@@ -180,7 +181,7 @@ else:
           img = platypus.Image(tmpName)
           img.drawWidth = self.width
           img.drawHeight = aspect*self.width
-        except:
+        except Exception:
           ok = 0
       if ok:
         res[self.smiCol] = img

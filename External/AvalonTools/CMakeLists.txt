@@ -1,7 +1,11 @@
 if(RDK_BUILD_AVALON_SUPPORT)
+string(REGEX REPLACE "\\\\" "/" AVALONTOOLS_DIR ${AVALONTOOLS_DIR})
 set(AVALON_SRC_PATH ${AVALONTOOLS_DIR}/common)
 
 add_definitions(-DBUILD_AVALON_SUPPORT)
+if (MSVC)
+  add_definitions( "/D_CRT_SECURE_NO_WARNINGS /wd4224 /wd4101 /wd4018 /wd4996 /wd4244 /wd4305 /wd4013 /wd4146 /wd4334 /wd4715 /wd4715  /nologo" )
+endif(MSVC)
 
 set(avalon_clib_srcs ${AVALON_SRC_PATH}/layout.c 
 	${AVALON_SRC_PATH}/symboltable.c 
@@ -47,6 +51,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${AVALON_SRC_PATH})
 
 rdkit_library(AvalonLib AvalonTools.cpp SHARED LINK_LIBRARIES avalon_clib FileParsers SmilesParse GraphMol DataStructs RDGeometryLib RDGeneral )
+rdkit_headers(AvalonTools.h DEST GraphMol)
 rdkit_test(testAvalonLib1 test1.cpp
            LINK_LIBRARIES AvalonLib avalon_clib FileParsers SmilesParse GraphMol DataStructs RDGeometryLib RDGeneral)
 

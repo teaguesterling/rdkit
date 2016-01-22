@@ -11,16 +11,18 @@
 """ tools for interacting with chemdraw
 
 """
+from __future__ import print_function
+
 import string,tempfile,os,time
 try:
   import pythoncom
   from win32com.client import gencache,Dispatch,constants
   import win32com.client.gencache
   cdxModule = win32com.client.gencache.EnsureModule("{5F646AAB-3B56-48D2-904C-A68D7989C251}", 0, 7, 0)
-except:
+except Exception:
   cdxModule = None
   _cdxVersion=0
-  raise ImportError,"ChemDraw version (at least version 7) not found."
+  raise ImportError("ChemDraw version (at least version 7) not found.")
 else:
   _cdxVersion=7
 
@@ -143,7 +145,7 @@ def CDXDisplay(inData,inFormat='chemical/cdx',clear=1):
     StartChemDraw()
   try:
     theDoc.Activate()
-  except:
+  except Exception:
     ReactivateChemDraw()
     theObjs = theDoc.Objects
   if clear:
@@ -164,7 +166,7 @@ def CDXGrab(outFormat='chemical/x-mdl-molfile'):
       ReactivateChemDraw()
     try:
       res = cdApp.ActiveDocument.Objects.GetData(outFormat)
-    except:
+    except Exception:
       res = ""
   return res
 
@@ -175,7 +177,7 @@ def CloseChemdraw():
   global cdApp
   try:
     cdApp.Quit()
-  except:
+  except Exception:
     pass
   Exit()
 
@@ -229,7 +231,7 @@ def RaiseChemDraw():
   
 try:
   from PIL import Image
-  import cStringIO
+  from io import StringIO
   def SmilesToPilImage(smilesStr):
     """takes a SMILES string and returns a PIL image using chemdraw
 
@@ -241,15 +243,15 @@ try:
     """
     # do the conversion...
     res = CDXConvert(dataStr,inFormat,outFormat)
-    dataFile = cStringIO.StringIO(str(res))
+    dataFile = StringIO(str(res))
     img = Image.open(dataFile).convert('RGB')
     return img
 except ImportError:
   def SmilesToPilImage(smilesStr):
-    print 'You need to have PIL installed to use this functionality'
+    print('You need to have PIL installed to use this functionality')
     return None
   def MolToPilImage(dataStr,inFormat='chemical/daylight-smiles',outFormat='image/gif'):
-    print 'You need to have PIL installed to use this functionality'
+    print('You need to have PIL installed to use this functionality')
     return None
 
 
@@ -297,8 +299,8 @@ def Add3DCoordsToMol(data,format,props={}):
   doc = c3dApp.Documents.Open(molFName)
 
   if not doc:
-    print 'cannot open molecule'
-    raise ValueError,'No Molecule'
+    print('cannot open molecule')
+    raise ValueError('No Molecule')
 
   # set up the MM2 job
   job = Dispatch('Chem3D.MM2Job')
@@ -328,7 +330,7 @@ def Add3DCoordsToMol(data,format,props={}):
   while not gone:
     try:
       os.unlink(outFName)
-    except:
+    except Exception:
       time.sleep(.5)
     else:
       gone = 1
@@ -367,7 +369,7 @@ def OptimizeSDFile(inFileName,outFileName,problemFileName='problems.sdf',
 
       try:
         newMolBlock = Add3DCoordsToMol(molBlock,'chemical/mdl-molfile',props=props)
-      except:
+      except Exception:
         badBlock = molBlock
         skip = 1
         lines = []
@@ -377,7 +379,7 @@ def OptimizeSDFile(inFileName,outFileName,problemFileName='problems.sdf',
     elif nextLine.find('$$$$') != -1:
       t2 = time.time()
       nDone += 1
-      print 'finished molecule %d in %f seconds'%(nDone,time.time()-t1)
+      print('finished molecule %d in %f seconds'%(nDone,time.time()-t1))
       t1 = time.time()
       if nDone%restartEvery == 0:
         CloseChem3D()
@@ -410,13 +412,13 @@ if __name__=='__main__':
   img = SmilesToPilImage(inStr)
   img.save('foo.jpg')
   convStr = CDXClean(inStr,'chemical/x-daylight-smiles','chemical/x-daylight-smiles')
-  print 'in:',inStr
-  print 'out:',convStr
+  print('in:',inStr)
+  print('out:',convStr)
   convStr = CDXConvert(inStr,'chemical/x-daylight-smiles','chemical/x-mdl-molfile')
-  print 'in:',inStr
-  print 'out:',convStr
+  print('in:',inStr)
+  print('out:',convStr)
   convStr2 = CDXClean(convStr,'chemical/x-mdl-molfile','chemical/x-mdl-molfile')  
-  print 'out2:',convStr2
+  print('out2:',convStr2)
 
   inStr = 'COc1ccc(c2onc(c2C(=O)NCCc3ccc(F)cc3)c4ccc(F)cc4)c(OC)c1'
   convStr = CDXConvert(inStr,'chemical/x-daylight-smiles','chemical/x-mdl-molfile')

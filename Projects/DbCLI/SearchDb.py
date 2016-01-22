@@ -1,6 +1,6 @@
 # $Id$
 #
-#  Copyright (c) 2007, Novartis Institutes for BioMedical Research Inc.
+#  Copyright (c) 2007-2013, Novartis Institutes for BioMedical Research Inc.
 #  All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,8 @@
 #
 #  Created by Greg Landrum, July 2007
 #
-_version = "0.13.0"
+from __future__ import print_function
+_version = "0.14.0"
 _usage="""
  SearchDb [optional arguments] <sdfilename>
 
@@ -62,15 +63,26 @@ from rdkit.Chem.MolDb import FingerprintUtils
 
 from rdkit import DataStructs
 
+def _molFromPkl(pkl):
+  if isinstance(pkl,(bytes,str)):
+    mol = Chem.Mol(pkl)
+  else:
+    mol = Chem.Mol(str(pkl))
+  return mol
 
 def GetNeighborLists(probes,topN,pool,
                      simMetric=DataStructs.DiceSimilarity,
-                     silent=False):
+                     simThresh=-1.,
+                     silent=False,
+                     **kwargs):
   probeFps = [x[1] for x in probes]
   validProbes = [x for x in range(len(probeFps)) if probeFps[x] is not None]
   validFps=[probeFps[x] for x in validProbes]
   from rdkit.DataStructs.TopNContainer import TopNContainer
-  nbrLists = [TopNContainer(topN) for x in range(len(probeFps))]
+  if simThresh<=0:
+    nbrLists = [TopNContainer(topN) for x in range(len(probeFps))]
+  else:
+    nbrLists=[TopNContainer(-1) for x in range(len(probeFps))]
 
   nDone=0
   for nm,fp in pool:
@@ -79,33 +91,40 @@ def GetNeighborLists(probes,topN,pool,
     if(simMetric==DataStructs.DiceSimilarity):
       scores = DataStructs.BulkDiceSimilarity(fp,validFps)
       for i,score in enumerate(scores):
-        nbrLists[validProbes[i]].Insert(score,nm)
+        if score>simThresh:
+          nbrLists[validProbes[i]].Insert(score,nm)
     elif(simMetric==DataStructs.TanimotoSimilarity):
       scores = DataStructs.BulkTanimotoSimilarity(fp,validFps)
       for i,score in enumerate(scores):
-        nbrLists[validProbes[i]].Insert(score,nm)
+        if score>simThresh:
+          nbrLists[validProbes[i]].Insert(score,nm)
+    elif(simMetric==DataStructs.TverskySimilarity):
+      av = float(kwargs.get('tverskyA',0.5))
+      bv = float(kwargs.get('tverskyB',0.5))
+      scores = DataStructs.BulkTverskySimilarity(fp,validFps,av,bv)
+      for i,score in enumerate(scores):
+        if score>simThresh:
+          nbrLists[validProbes[i]].Insert(score,nm)
     else:
       for i in range(len(probeFps)):
         pfp = probeFps[i]
         if pfp is not None:
           score = simMetric(probeFps[i],fp)
-          nbrLists[i].Insert(score,nm)
+          if score>simThresh:
+            nbrLists[validProbes[i]].Insert(score,nm)
   return nbrLists
 
 def GetMolsFromSmilesFile(dataFilename,errFile,nameProp):
-  dataFile=file(dataFilename,'r')
+  dataFile=open(dataFilename,'r')
   for idx,line in enumerate(dataFile):
     try:
       smi,nm = line.strip().split(' ')
-    except:
+    except ValueError:
       continue
-    try:
-      m = Chem.MolFromSmiles(smi)
-    except:
-      m=None
+    m = Chem.MolFromSmiles(smi)
     if not m:
       if errfile:
-        print >>errFile,idx,nm,smi
+        print(idx,nm,smi,file=errfile)
       continue
     yield (nm,smi,m)
 
@@ -179,6 +198,17 @@ def RunSearch(options,queryFilename):
     fpTableName = options.morganFpTableName
     fpColName = options.morganFpColName
 
+
+  extraArgs={}
+  if options.similarityMetric=='tanimoto':
+    simMetric = DataStructs.TanimotoSimilarity
+  elif options.similarityMetric=='dice':
+    simMetric = DataStructs.DiceSimilarity
+  elif options.similarityMetric=='tversky':
+    simMetric = DataStructs.TverskySimilarity
+    extraArgs['tverskyA']=options.tverskyA
+    extraArgs['tverskyB']=options.tverskyB
+
   if options.smilesQuery:
     mol=Chem.MolFromSmiles(options.smilesQuery)
     if not mol:
@@ -197,7 +227,7 @@ def RunSearch(options,queryFilename):
   elif options.outF=='':
     outF=None
   else:
-    outF = file(options.outF,'w+')
+    outF = open(options.outF,'w+')
   
   molsOut=False
   if options.sdfOut:
@@ -205,7 +235,7 @@ def RunSearch(options,queryFilename):
     if options.sdfOut=='-':
       sdfOut=sys.stdout
     else:
-      sdfOut = file(options.sdfOut,'w+')
+      sdfOut = open(options.sdfOut,'w+')
   else:
     sdfOut=None
   if options.smilesOut:
@@ -213,13 +243,13 @@ def RunSearch(options,queryFilename):
     if options.smilesOut=='-':
       smilesOut=sys.stdout
     else:
-      smilesOut = file(options.smilesOut,'w+')
+      smilesOut = open(options.smilesOut,'w+')
   else:
     smilesOut=None
 
   if queryFilename:
     try:
-      tmpF = file(queryFilename,'r')
+      tmpF = open(queryFilename,'r')
     except IOError:
       logger.error('could not open query file %s'%queryFilename)
       sys.exit(1)
@@ -281,7 +311,7 @@ def RunSearch(options,queryFilename):
         curs.execute("attach database '%s' as fpdb"%(fpDbName))
         try:
           curs.execute('select * from fpdb.%s limit 1'%options.layeredTableName)
-        except:
+        except Exception:
           pass
         else:
           doSubstructFPs=True
@@ -302,9 +332,9 @@ def RunSearch(options,queryFilename):
       while row:
         id,molpkl = row
         if not options.zipMols:
-          m = Chem.Mol(str(molpkl))
+          m = _molFromPkl(molpkl)
         else:
-          m = Chem.Mol(zlib.decompress(str(molpkl)))
+          m = Chem.Mol(zlib.decompress(molpkl))
         matched=m.HasSubstructMatch(options.queryMol)
         if options.negateQuery:
           matched = not matched
@@ -359,12 +389,11 @@ def RunSearch(options,queryFilename):
       row = curs.fetchone()
       while row:
         id,pkl = row
-        fp = DepickleFP(str(pkl),similarityMethod)
+        fp = DepickleFP(pkl,similarityMethod)
         yield (id,fp)
         row = curs.fetchone()
     topNLists = GetNeighborLists(probes,options.topN,poolFromCurs(curs,options.similarityType),
-                                 simMetric=simMetric)
-
+                                 simMetric=simMetric,simThresh=options.simThresh,**extraArgs)
     uniqIds=set()
     nbrLists = {}
     for i,nm in enumerate(nms):
@@ -396,23 +425,23 @@ def RunSearch(options,queryFilename):
     for guid,id in curs.fetchall():
       nmDict[guid]=str(id)
     
-    ks = nbrLists.keys()
+    ks = list(nbrLists.keys())
     ks.sort()
     if not options.transpose:
       for i,nm in ks:
         nbrs= nbrLists[(i,nm)]
         nbrTxt=options.outputDelim.join([nm]+['%s%s%.3f'%(nmDict[id],options.outputDelim,score) for id,score in nbrs])
-        if outF: print >>outF,nbrTxt
+        if outF: print(nbrTxt,file=outF)
     else:
       labels = ['%s%sSimilarity'%(x[1],options.outputDelim) for x in ks]
-      if outF: print >>outF,options.outputDelim.join(labels)
+      if outF: print(options.outputDelim.join(labels),file=outF)
       for i in range(options.topN):
         outL = []
         for idx,nm in ks:
           nbr = nbrLists[(idx,nm)][i]
           outL.append(nmDict[nbr[0]])
           outL.append('%.3f'%nbr[1])
-        if outF: print >>outF,options.outputDelim.join(outL)
+        if outF: print(options.outputDelim.join(outL),file=outF)
   else:
     if not options.silent: logger.info('Creating output')
     curs = mConn.GetCursor()
@@ -424,7 +453,7 @@ def RunSearch(options,queryFilename):
     nmDict={}
     for guid,id in curs.fetchall():
       nmDict[guid]=str(id)
-    if outF: print >>outF,'\n'.join(nmDict.values())
+    if outF: print('\n'.join(nmDict.values()),file=outF)
   if molsOut and ids:
     molDbName = os.path.join(options.dbDir,options.molDbName)
     cns = [x.lower() for x in mConn.GetColumnNames('molecules')]
@@ -442,22 +471,21 @@ def RunSearch(options,queryFilename):
     molD = {}
     while row:
       row = list(row)
-      pkl = row[-1]
-      m = Chem.Mol(str(pkl))
+      m = _molFromPkl(row[-1])
       guid = row[0]
       nm = nmDict[guid]
       if sdfOut:
         m.SetProp('_Name',nm)
-        print >>sdfOut,Chem.MolToMolBlock(m)
+        print(Chem.MolToMolBlock(m),file=sdfOut)
         for i in range(1,len(cns)-1):
           pn = cns[i]
           pv = str(row[i])
           print >>sdfOut,'> <%s>\n%s\n'%(pn,pv)
-        print >>sdfOut,'$$$$'
+        print('$$$$',file=sdfOut)
       if smilesOut:
         smi=Chem.MolToSmiles(m,options.chiralSmiles)        
       if smilesOut:
-        print >>smilesOut,'%s %s'%(smi,str(row[1]))
+        print('%s %s'%(smi,str(row[1])),file=smilesOut)
       row=curs.fetchone()
   if not options.silent: logger.info('Done!')
 
@@ -555,6 +583,15 @@ parser.add_option('--morganFpTableName',default='morganfps',
 parser.add_option('--morganFpColName',default='morganfp',
                   help='name of the morgan fingerprint column')
 
+parser.add_option('--similarityMetric','--simMetric','--metric',
+                  default='',choices=('tanimoto','dice','tversky',''),
+                  help='Choose the type of similarity to use, possible values: tanimoto, dice, tversky. The default is determined by the fingerprint type')
+parser.add_option('--tverskyA',default=0.5,type='float',
+                  help='Tversky A value')
+parser.add_option('--tverskyB',default=0.5,type='float',
+                  help='Tversky B value')
+parser.add_option('--simThresh',default=-1,type='float',
+                  help='threshold to use for similarity searching. If provided, this supersedes the topN argument')
 
 if __name__=='__main__':
   import sys,getopt,time

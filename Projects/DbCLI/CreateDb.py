@@ -62,7 +62,9 @@ from rdkit.RDLogger import logger
 from rdkit.Chem.MolDb import Loader
 
 logger = logger()
-import cPickle,sys,os
+import sys,os
+import io
+from rdkit.six.moves import cPickle
 from rdkit.Chem.MolDb.FingerprintUtils import BuildSigFactory,LayeredOptions
 from rdkit.Chem.MolDb import FingerprintUtils
 
@@ -126,7 +128,8 @@ parser.add_option('--noExtras',default=False,action='store_true',
                   help='skip all non-molecule databases')
 parser.add_option('--skipLoad','--skipMols',action="store_false",dest='loadMols',default=True,
                   help='skip the molecule loading (assumes mol db already exists)')
-
+parser.add_option('--updateDb','--update',default=False,action='store_true',
+                  help='add to an existing database')
 parser.add_option('--doPharm2D',default=False,
                   action='store_true',
                   help='skip calculating Pharm2D fingerprints')
@@ -157,10 +160,10 @@ parser.add_option('--nameColumn','--nameCol',default=1,type='int',
 
 def CreateDb(options,dataFilename='',supplier=None):
   if not dataFilename and supplier is None:
-    raise ValueError,'Please provide either a data filename or a supplier'
+    raise ValueError('Please provide either a data filename or a supplier')
 
   if options.errFilename:
-    errFile=file(os.path.join(options.outDir,options.errFilename),'w+')
+    errFile=open(os.path.join(options.outDir,options.errFilename),'w+')
   else:
     errFile=None
 
@@ -185,7 +188,7 @@ def CreateDb(options,dataFilename='',supplier=None):
             # guess the delimiter
             import csv
             sniffer = csv.Sniffer()
-            dlct=sniffer.sniff(file(dataFilename,'r').read(2000))
+            dlct=sniffer.sniff(open(dataFilename,'r').read(2000))
             options.delimiter=dlct.delimiter
             if not options.silent:
               logger.info('Guessing that delimiter is %s. Use --delimiter argument if this is wrong.'%repr(options.delimiter))
@@ -209,13 +212,16 @@ def CreateDb(options,dataFilename='',supplier=None):
                   addComputedProps=options.addProps,uniqNames=True,
                   skipSmiles=options.skipSmiles,maxRowsCached=int(options.maxRowsCached),
                   silent=options.silent,nameProp=options.nameProp,
-                  lazySupplier=int(options.maxRowsCached)>0)
+                  lazySupplier=int(options.maxRowsCached)>0,
+                  startAnew=not options.updateDb
+                  )
+
   if options.doPairs:
     pairConn = DbConnect(os.path.join(options.outDir,options.pairDbName))
     pairCurs = pairConn.GetCursor()
     try:
       pairCurs.execute('drop table %s'%(options.pairTableName))
-    except:
+    except Exception:
       pass
     pairCurs.execute('create table %s (guid integer not null primary key,%s varchar not null unique,atompairfp blob,torsionfp blob)'%(options.pairTableName,
                                                                                                          options.molIdName))
@@ -225,19 +231,19 @@ def CreateDb(options,dataFilename='',supplier=None):
     fpCurs=fpConn.GetCursor()
     try:
       fpCurs.execute('drop table %s'%(options.fpTableName))
-    except:
+    except Exception:
       pass
     try:
       fpCurs.execute('drop table %s'%(options.pharm2DTableName))
-    except:
+    except Exception:
       pass
     try:
       fpCurs.execute('drop table %s'%(options.gobbi2DTableName))
-    except:
+    except Exception:
       pass
     try:
       fpCurs.execute('drop table %s'%(options.layeredTableName))
-    except:
+    except Exception:
       pass
 
     if options.doFingerprints:
@@ -264,21 +270,24 @@ def CreateDb(options,dataFilename='',supplier=None):
     fpCurs=fpConn.GetCursor()
     try:
       fpCurs.execute('drop table %s'%(options.morganFpTableName))
-    except:
+    except Exception:
       pass
     fpCurs.execute('create table %s (guid integer not null primary key,%s varchar not null unique,morganfp blob)'%(options.morganFpTableName,
                                                                                         options.molIdName))
 
   if options.doDescriptors:
     descrConn=DbConnect(os.path.join(options.outDir,options.descrDbName))
-    calc = cPickle.load(file(options.descriptorCalcFilename,'rb'))
+    with open(options.descriptorCalcFilename,'r') as inTF:
+      buf = inTF.read().replace('\r\n', '\n').encode('utf-8')
+      inTF.close()
+    calc = cPickle.load(io.BytesIO(buf))
     nms = [x for x in calc.GetDescriptorNames()]
     descrCurs = descrConn.GetCursor()
     descrs = ['guid integer not null primary key','%s varchar not null unique'%options.molIdName]
     descrs.extend(['%s float'%x for x in nms])
     try:
       descrCurs.execute('drop table %s'%(options.descrTableName))
-    except:
+    except Exception:
       pass
     descrCurs.execute('create table %s (%s)'%(options.descrTableName,','.join(descrs)))
     descrQuery=','.join([DbModule.placeHolder]*len(descrs))
@@ -305,9 +314,12 @@ def CreateDb(options,dataFilename='',supplier=None):
       molId = tpl[1]
       pkl = tpl[-1]
       i+=1
-    except:
+    except Exception:
       break
-    mol = Chem.Mol(str(pkl))
+    if isinstance(pkl,(bytes,str)):
+      mol = Chem.Mol(pkl)
+    else:
+      mol = Chem.Mol(str(pkl))
     if not mol: continue
      
     if options.doPairs:
@@ -435,7 +447,7 @@ if __name__=='__main__':
       parser.error('please provide a filename argument')
     dataFilename = args[0]
     try:
-      dataFile = file(dataFilename,'r')
+      dataFile = open(dataFilename,'r')
     except IOError:
       logger.error('input file %s does not exist'%(dataFilename))
       sys.exit(0)
@@ -448,7 +460,7 @@ if __name__=='__main__':
   if not os.path.exists(options.outDir):
     try:
       os.mkdir(options.outDir)
-    except: 
+    except Exception: 
       logger.error('could not create output directory %s'%options.outDir)
       sys.exit(1)
 

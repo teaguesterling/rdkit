@@ -6,7 +6,7 @@
 
 """
 import unittest
-import cPickle
+from rdkit.six.moves import cPickle
 from rdkit.ML.Data import MLData,DataUtils
 from rdkit import RDConfig
     
@@ -23,12 +23,7 @@ class TestCase(unittest.TestCase):
 
   def testQuantLoad(self):
     " testing QuantDataSet load"
-    ok = 1
-    try:
-      self.d = DataUtils.BuildQuantDataSet(RDConfig.RDCodeDir+'/ML/Data/test_data/test.qdat')
-    except:
-      ok = 0
-    assert ok,'BuildQuantDataSet failed'
+    self.d = DataUtils.BuildQuantDataSet(RDConfig.RDCodeDir+'/ML/Data/test_data/test.qdat')
 
   def testQuantProps(self):
     " testing QuantDataSet Properties"
@@ -49,11 +44,11 @@ class TestCase(unittest.TestCase):
     " testing QuantDataSet pickling "
     self.setUpQuantLoad()
     DataUtils.WritePickledData(RDConfig.RDCodeDir+'/ML/Data/test_data/testquant.qdat.pkl',self.d)
-    f = open(RDConfig.RDCodeDir+'/ML/Data/test_data/testquant.qdat.pkl','rb')
-    vNames = cPickle.load(f)
-    qBounds = cPickle.load(f)
-    ptNames = cPickle.load(f)
-    examples = cPickle.load(f)
+    with open(RDConfig.RDCodeDir+'/ML/Data/test_data/testquant.qdat.pkl','rb') as f:
+      vNames = cPickle.load(f)
+      qBounds = cPickle.load(f)
+      ptNames = cPickle.load(f)
+      examples = cPickle.load(f)
     d = MLData.MLQuantDataSet(examples,varNames=vNames,qBounds=qBounds,ptNames=ptNames)
     assert self.d.GetNPts()==d.GetNPts(),'nPts wrong'
     assert self.d.GetNVars()==d.GetNVars(),'nVars wrong'
@@ -69,12 +64,8 @@ class TestCase(unittest.TestCase):
 
   def testGeneralLoad(self):
     " testing DataSet load"
-    ok = 1
-    try:
-      self.d = DataUtils.BuildDataSet(RDConfig.RDCodeDir+'/ML/Data/test_data/test.dat')
-    except:
-      ok = 0
-    assert ok,'BuildDataSet failed'
+    self.d = DataUtils.BuildDataSet(RDConfig.RDCodeDir+'/ML/Data/test_data/test.dat')
+
   def testGeneralProps(self):
     " testing DataSet properties"
     self.setUpGeneralLoad()
@@ -99,11 +90,11 @@ class TestCase(unittest.TestCase):
     " testing DataSet pickling"
     self.setUpGeneralLoad()
     DataUtils.WritePickledData(RDConfig.RDCodeDir+'/ML/Data/test_data/testgeneral.dat.pkl',self.d)
-    f = open(RDConfig.RDCodeDir+'/ML/Data/test_data/testgeneral.dat.pkl','rb')
-    vNames = cPickle.load(f)
-    qBounds = cPickle.load(f)
-    ptNames = cPickle.load(f)
-    examples = cPickle.load(f)
+    with open(RDConfig.RDCodeDir+'/ML/Data/test_data/testgeneral.dat.pkl','rb') as f: 
+      vNames = cPickle.load(f)
+      qBounds = cPickle.load(f)
+      ptNames = cPickle.load(f)
+      examples = cPickle.load(f)
     d = MLData.MLDataSet(examples,varNames=vNames,qBounds=qBounds,ptNames=ptNames)
     assert self.d.GetNPts()==d.GetNPts(),'nPts wrong'
     assert self.d.GetNVars()==d.GetNVars(),'nVars wrong'

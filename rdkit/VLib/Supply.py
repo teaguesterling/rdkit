@@ -4,6 +4,7 @@
 #     All Rights Reserved
 #
 import sys
+from rdkit import six
 
 from rdkit.VLib.Node import VLibNode
 
@@ -52,8 +53,10 @@ class SupplyNode(VLibNode):
     self._pos += 1
     return res
   def AddParent(self,parent,notify=1):
-    raise ValueError,'SupplyNodes do not have parents'
+    raise ValueError('SupplyNodes do not have parents')
 
+if six.PY3:
+    SupplyNode.__next__ = SupplyNode.next
   
 #------------------------------------
 #

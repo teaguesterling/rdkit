@@ -153,6 +153,7 @@ typedef unsigned long long int	uintmax_t;
 %shared_ptr(ForceFields::UFF::DistanceConstraintContrib);
 %shared_ptr(ForceFields::UFF::vdWContrib);
 %shared_ptr(ForceFields::UFF::TorsionAngleContrib);
+%shared_ptr(ForceFields::UFF::InversionContrib);
 
 /* Some utility classes for passing arrays in and out */
 %array_class(double, Double_Array);
@@ -200,6 +201,9 @@ typedef unsigned long long int	uintmax_t;
 %include "../ForceField.i"
 %include "../ChemTransforms.i"
 %include "../Subgraphs.i"
+%include "../MolTransforms.i"
+%include "../FMCS.i"
+%include "../MolDraw2D.i"
 
 // Create a class to throw various sorts of errors for testing.  Required for unit tests in ErrorHandlingTests.java
 #ifdef INCLUDE_ERROR_GENERATOR
@@ -247,6 +251,8 @@ typedef unsigned long long int	uintmax_t;
 
 /* list */
 %template(Int_Vect_List) std::list<std::vector<int> >;
+%template(Int_List) std::list<int>;
+%template(UInt_List) std::list<unsigned int>;
 
 
 /* other */

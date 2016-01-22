@@ -78,18 +78,12 @@ def PrincipalComponents(mat,reverseOrder=1):
   """ do a principal components analysis
 
   """
-  import numpy.oldnumeric.linear_algebra as LinearAlgebra
   covMat = FormCorrelationMatrix(mat)
 
-  eigenVals,eigenVects = LinearAlgebra.eigenvectors(covMat)
-  try:
-    eigenVals = eigenVals.real
-  except:
-    pass
-  try:
-    eigenVects = eigenVects.real
-  except:
-    pass
+  eigenVals,eigenVects = numpy.linalg.eig(covMat)
+  # The the 'real' component, if it exists as its own attribute
+  eigenVals = getattr(eigenVals, "real", eigenVals)
+  eigenVects = getattr(eigenVects, "real", eigenVects)
 
   # and now sort:
   ptOrder = numpy.argsort(eigenVals).tolist()

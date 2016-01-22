@@ -148,7 +148,7 @@ class ClusterRenderer(object):
             if self.showIndices and not self.stopAtCentroids:
               try:
                 txt = str(child.GetName())
-              except:
+              except Exception:
                 txt = str(child.GetIndex())
               self.canvas.drawString(txt,
                                      cxp-self.canvas.stringWidth(txt)/2,
@@ -174,7 +174,7 @@ class ClusterRenderer(object):
     if not self.stopAtCentroids:
       self._DrawToLimit(cluster)
     else:
-      raise NotImplementedError,'stopAtCentroids drawing not yet implemented'
+      raise NotImplementedError('stopAtCentroids drawing not yet implemented')
       
 
 def DrawClusterTree(cluster,canvas,size,

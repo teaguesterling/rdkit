@@ -56,7 +56,7 @@ class DbMolSupplier(MolSupplier):
         self.molFmt = molColumnFormats[name]
         break
     if self.molCol < 0:
-      raise ValueError,'DbResultSet has no recognizable molecule column'
+      raise ValueError('DbResultSet has no recognizable molecule column')
     del self._colNames[self.molCol]
     self._colNames  = tuple(self._colNames)
     self._numProcessed=0
@@ -75,7 +75,7 @@ class DbMolSupplier(MolSupplier):
           warning('Problems processing mol %d, smiles: %s\n'%(self._numProcessed,molD))
       elif self.molFmt =='PKL':
         newM = Chem.Mol(str(molD))
-    except:
+    except Exception:
       import traceback
       traceback.print_exc()
       newM = None
@@ -83,7 +83,7 @@ class DbMolSupplier(MolSupplier):
       if newM and self.transformFunc:
         try:
           newM = self.transformFunc(newM,data)
-        except:
+        except Exception:
           import traceback
           traceback.print_exc()
           newM = None

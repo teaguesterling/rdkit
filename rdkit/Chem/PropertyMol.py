@@ -8,7 +8,7 @@ from rdkit import Chem
 class PropertyMol(Chem.Mol):
   """ allows rdkit molecules to be pickled with their properties saved.
 
-   >>> import cPickle
+   >>> from rdkit.six.moves import cPickle
    >>> m = Chem.MolFromMolFile('test_data/benzene.mol')
    >>> m.GetProp('_Name')
    'benzene.mol'
@@ -42,14 +42,7 @@ class PropertyMol(Chem.Mol):
    of property values:
    >>> pm.SetProp('IntVal',1)
 
-   That wouldn't work with a standard mol:
-   >>> m.SetProp('IntVal',1)
-   Traceback (most recent call last):
-     ...
-   ArgumentError: Python argument types in
-       Mol.SetProp(Mol, str, int)
-   did not match C++ signature:
-     ...
+   That wouldn't work with a standard mol
 
    but the Property mols still convert all values to strings before storing:
    >>> pm.GetProp('IntVal')
@@ -61,12 +54,12 @@ class PropertyMol(Chem.Mol):
    >>> w = Chem.SDWriter(fn)
    >>> w.write(pm)
    >>> w=None
-   >>> txt = file(fn,'r').read()
+   >>> txt = open(fn,'r').read()
    >>> '<IntVal>' in txt
    True
    >>> try:
    ...   os.unlink(fn)
-   ... except:
+   ... except Exception:
    ...   pass
 
    The next level of that bug: does writing a *depickled* propertymol
@@ -76,12 +69,12 @@ class PropertyMol(Chem.Mol):
    >>> pm = cPickle.loads(cPickle.dumps(pm))
    >>> w.write(pm)
    >>> w=None
-   >>> txt = file(fn,'r').read()
+   >>> txt = open(fn,'r').read()
    >>> '<IntVal>' in txt
    True
    >>> try:
    ...   os.unlink(fn)
-   ... except:
+   ... except Exception:
    ...   pass
 
 
@@ -90,7 +83,7 @@ class PropertyMol(Chem.Mol):
   __getstate_manages_dict__=True
   def __init__(self,mol):
     if not isinstance(mol,Chem.Mol): return
-    Chem.Mol.__init__(self,mol.ToBinary())
+    Chem.Mol.__init__(self,mol)
     for pn in mol.GetPropNames(includePrivate=True):
       self.SetProp(pn,mol.GetProp(pn))
   def SetProp(self,nm,val):
@@ -103,7 +96,7 @@ class PropertyMol(Chem.Mol):
             'propD':pDict}
   def __setstate__(self,stateD):
     Chem.Mol.__init__(self,stateD['pkl'])
-    for prop,val in stateD['propD'].iteritems():
+    for prop,val in stateD['propD'].items():
       self.SetProp(prop,val)
 
     

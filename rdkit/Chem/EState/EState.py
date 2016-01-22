@@ -11,6 +11,7 @@
 """ Basic EState definitions
 
 """
+from __future__ import print_function
 import numpy
 from rdkit import Chem
 
@@ -61,11 +62,27 @@ def EStateIndices(mol,force=1):
   return res
 EStateIndices.version='1.0.0'
 
+def MaxEStateIndex(mol,force=1):
+  return max(EStateIndices(mol,force));
+MaxEStateIndex.version="1.0.0"
+
+def MinEStateIndex(mol,force=1):
+  return min(EStateIndices(mol,force));
+MinEStateIndex.version="1.0.0"
+
+def MaxAbsEStateIndex(mol,force=1):
+  return max([abs(x) for x in EStateIndices(mol,force)]);
+MaxAbsEStateIndex.version="1.0.0"
+
+def MinAbsEStateIndex(mol,force=1):
+  return min([abs(x) for x in EStateIndices(mol,force)]);
+MinAbsEStateIndex.version="1.0.0"
+
 if __name__ =='__main__':
   smis = ['CCCC','CCCCC','CCCCCC','CC(N)C(=O)O','CC(N)C(=O)[O-].[Na+]']
   for smi in smis:
     m = Chem.MolFromSmiles(smi)
-    print smi
+    print(smi)
     inds = EStateIndices(m)
-    print '\t',inds
+    print('\t',inds)
 

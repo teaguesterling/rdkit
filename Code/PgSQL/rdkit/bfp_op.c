@@ -102,6 +102,29 @@ bfp_tanimoto_sml(PG_FUNCTION_ARGS) {
 
   PG_RETURN_FLOAT8(res);          
 }
+PG_FUNCTION_INFO_V1(bfp_tversky_sml);
+Datum           bfp_tversky_sml(PG_FUNCTION_ARGS);
+Datum
+bfp_tversky_sml(PG_FUNCTION_ARGS) {
+  MolBitmapFingerPrint    abfp,
+    bbfp;
+  double                  res;
+
+  fcinfo->flinfo->fn_extra = SearchBitmapFPCache(
+                                                 fcinfo->flinfo->fn_extra,
+                                                 fcinfo->flinfo->fn_mcxt,
+                                                 PG_GETARG_DATUM(0), 
+                                                 NULL, &abfp, NULL);
+  fcinfo->flinfo->fn_extra = SearchBitmapFPCache(
+                                                 fcinfo->flinfo->fn_extra,
+                                                 fcinfo->flinfo->fn_mcxt,
+                                                 PG_GETARG_DATUM(1), 
+                                                 NULL, &bbfp, NULL);
+
+  res = calcBitmapTverskySml(abfp, bbfp, PG_GETARG_FLOAT4(2),PG_GETARG_FLOAT4(3) ); 
+
+  PG_RETURN_FLOAT8(res);          
+}
 #if PG_VERSION_NUM >= 90100
 PG_FUNCTION_INFO_V1(bfp_tanimoto_dist);
 Datum           bfp_tanimoto_dist(PG_FUNCTION_ARGS);
@@ -383,3 +406,47 @@ maccs_fp(PG_FUNCTION_ARGS) {
   PG_RETURN_BITMAPFINGERPRINT_P(sfp);
 }
 
+PG_FUNCTION_INFO_V1(avalon_fp);
+Datum       avalon_fp(PG_FUNCTION_ARGS);
+Datum
+avalon_fp(PG_FUNCTION_ARGS) {
+  CROMol  mol;
+  MolBitmapFingerPrint    fp;
+  BitmapFingerPrint               *sfp;
+
+  fcinfo->flinfo->fn_extra = SearchMolCache(
+                                            fcinfo->flinfo->fn_extra,
+                                            fcinfo->flinfo->fn_mcxt,
+                                            PG_GETARG_DATUM(0),
+                                            NULL, &mol, NULL);
+
+  fp = makeAvalonBFP(mol,
+                     PG_GETARG_BOOL(1), /* isQuery */
+                     PG_GETARG_UINT32(2) /* flags */
+                     );
+  sfp = deconstructMolBitmapFingerPrint(fp);
+  freeMolBitmapFingerPrint(fp);
+
+  PG_RETURN_BITMAPFINGERPRINT_P(sfp);
+}
+
+PG_FUNCTION_INFO_V1(reaction_structural_bfp);
+Datum       reaction_structural_bfp(PG_FUNCTION_ARGS);
+Datum
+reaction_structural_bfp(PG_FUNCTION_ARGS) {
+  CChemicalReaction rxn;
+  MolBitmapFingerPrint fp;
+  BitmapFingerPrint *sfp;
+
+  fcinfo->flinfo->fn_extra = SearchChemReactionCache(
+                                            fcinfo->flinfo->fn_extra,
+                                            fcinfo->flinfo->fn_mcxt,
+                                            PG_GETARG_DATUM(0),
+                                            NULL, &rxn, NULL);
+
+  fp = makeReactionBFP(rxn, getReactionSubstructFpSize(), PG_GETARG_INT32(1) /* fpType */);
+  sfp = deconstructMolBitmapFingerPrint(fp);
+  freeMolBitmapFingerPrint(fp);
+
+  PG_RETURN_BITMAPFINGERPRINT_P(sfp);
+}

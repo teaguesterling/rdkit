@@ -94,10 +94,7 @@ def DrawTreeNode(node,loc,canvas,nRes=2,scaleLeaves=False,showPurity=False):
   if not scaleLeaves or not node.GetTerminal():
     rad = visOpts.circRad
   else:
-    try:
-      scaleLoc = node._scaleLoc
-    except:
-      scaleLoc = 0.5
+    scaleLoc = getattr(node, "_scaleLoc", 0.5)
         
     rad = visOpts.minCircRad + node._scaleLoc*(visOpts.maxCircRad-visOpts.minCircRad)
 
@@ -131,7 +128,7 @@ def DrawTreeNode(node,loc,canvas,nRes=2,scaleLeaves=False,showPurity=False):
   childY = loc[1] + visOpts.vertOffset
   # this is the left-hand side of the leftmost span
   childX = loc[0] - ((visOpts.horizOffset+visOpts.circRad)*node.totNChildren)/2    
-  for i in xrange(len(children)):
+  for i in range(len(children)):
     # center on this child's space
     child = children[i]
     halfWidth = ((visOpts.horizOffset+visOpts.circRad)*child.totNChildren)/2      

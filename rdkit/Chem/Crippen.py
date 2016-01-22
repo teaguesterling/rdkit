@@ -16,6 +16,7 @@
 
 
 """
+from __future__ import print_function
 import os
 from rdkit import RDConfig
 from rdkit import Chem
@@ -35,35 +36,33 @@ def _ReadPatts(fileName):
   """
   patts = {}
   order = []
-  for line in open(fileName,'r').xreadlines():
+  with open(fileName,'r') as f:
+    lines = f.readlines()
+  for line in lines:
     if line[0] != '#':
       splitLine = line.split('\t')
       if len(splitLine)>=4 and splitLine[0] != '':
         sma = splitLine[1]
         if sma!='SMARTS':
           sma.replace('"','')
-          try:
-            p = Chem.MolFromSmarts(sma)
-          except:
-            pass
-          else:
-            if p:
-              if len(splitLine[0])>1 and splitLine[0][1] not in 'S0123456789':
-                cha = splitLine[0][:2]
-              else:
-                cha = splitLine[0][0]
-              logP = float(splitLine[2])
-              if splitLine[3] != '':
-                mr = float(splitLine[3])
-              else:
-                mr = 0.0
-              if cha not in order:
-                order.append(cha)
-              l = patts.get(cha,[])
-              l.append((sma,p,logP,mr))
-              patts[cha] = l
+          p = Chem.MolFromSmarts(sma)
+          if p:
+            if len(splitLine[0])>1 and splitLine[0][1] not in 'S0123456789':
+              cha = splitLine[0][:2]
             else:
-              print 'Problems parsing smarts: %s'%(sma)
+              cha = splitLine[0][0]
+            logP = float(splitLine[2])
+            if splitLine[3] != '':
+              mr = float(splitLine[3])
+            else:
+              mr = 0.0
+            if cha not in order:
+              order.append(cha)
+            l = patts.get(cha,[])
+            l.append((sma,p,logP,mr))
+            patts[cha] = l
+        else:
+          print('Problems parsing smarts: %s'%(sma))
   return order,patts
 
 _GetAtomContribs=rdMolDescriptors._CalcCrippenContribs
@@ -94,14 +93,14 @@ def _pyGetAtomContribs(mol,patts=None,order=None,verbose=0,force=0):
   for cha in order:
     pattVect = patts[cha]
     for sma,patt,logp,mr in pattVect:
-      #print 'try:',entry[0]
+      #print('try:',entry[0])
       for match in mol.GetSubstructMatches(patt,False,False):
         firstIdx = match[0]
         if not doneAtoms[firstIdx]:
           doneAtoms[firstIdx]=1
           atomContribs[firstIdx] = (logp,mr)
           if verbose:
-            print '\tAtom %d: %s %4.4f %4.4f'%(match[0],sma,logp,mr)
+            print('\tAtom %d: %s %4.4f %4.4f'%(match[0],sma,logp,mr))
           nAtomsFound+=1
           if nAtomsFound>=nAtoms:
             done=True
@@ -201,13 +200,13 @@ if __name__=='__main__':
       ms.append((smi,Chem.MolFromSmiles(smi)))
 
     for smi,m in ms:
-      print 'Mol: %s'%(smi)
+      print('Mol: %s'%(smi))
       logp = MolLogP(m,verbose=verbose)
-      print '----'
+      print('----')
       mr = MolMR(m,verbose=verbose)
-      print 'Res:',logp,mr
+      print('Res:',logp,mr)
       newM = Chem.AddHs(m)
       logp = MolLogP(newM,addHs=0)
       mr = MolMR(newM,addHs=0)
-      print '\t',logp,mr
-      print '-*-*-*-*-*-*-*-*'
+      print('\t',logp,mr)
+      print('-*-*-*-*-*-*-*-*')

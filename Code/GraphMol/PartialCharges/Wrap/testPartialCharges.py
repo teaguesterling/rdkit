@@ -1,9 +1,13 @@
+from __future__ import print_function
+import unittest
+import os
+import io
+
+from rdkit.six.moves import cPickle as pickle
+
 from rdkit import Chem
 from rdkit.Chem import rdPartialCharges
 from rdkit import RDConfig
-import unittest
-import os
-import cPickle as pickle
 
 def feq(v1,v2,tol2=1e-4):
     return abs(v1-v2)<=tol2
@@ -16,10 +20,9 @@ class TestCase(unittest.TestCase):
         smiSup = Chem.SmilesMolSupplier(os.path.join(RDConfig.RDBaseDir,'Code','GraphMol','PartialCharges','Wrap','test_data','halgren.smi'),delimiter='\t')
 
         #parse the original file
-        infil = file(os.path.join(RDConfig.RDBaseDir,'Code','GraphMol','PartialCharges','Wrap','test_data','halgren_out.txt'),
-                     'r')
-        lines = infil.readlines()
-        infil.close()
+        with open(os.path.join(RDConfig.RDBaseDir,'Code','GraphMol','PartialCharges','Wrap','test_data','halgren_out.txt'),
+                  'r') as infil:
+            lines = infil.readlines()
         
         tab = Chem.GetPeriodicTable()
         
@@ -39,8 +42,8 @@ class TestCase(unittest.TestCase):
             
         i = 0
         for line in lines:
-	  self.failUnless(line.strip() == olst[i])
-	  i += 1
+          self.assertTrue(line.strip() == olst[i])
+          i += 1
         
     def test1PPDataset(self):
         fileN = os.path.join(RDConfig.RDBaseDir,'Code','GraphMol','PartialCharges','Wrap','test_data', 'PP_descrs_regress.2.csv')
@@ -49,8 +52,11 @@ class TestCase(unittest.TestCase):
         infil.close()
 
         infile = os.path.join(RDConfig.RDBaseDir,'Code','GraphMol','PartialCharges','Wrap','test_data', 'PP_combi_charges.pkl')
-        cchFile = open(infile, 'rb')
-        combiCharges = pickle.load(cchFile)
+        with open(infile, 'r') as cchtFile:
+            buf = cchtFile.read().replace('\r\n', '\n').encode('utf-8')
+            cchtFile.close()
+        with io.BytesIO(buf) as cchFile:
+            combiCharges = pickle.load(cchFile)
 
         for lin in lines :
             if (lin[0] == '#') :
@@ -66,9 +72,9 @@ class TestCase(unittest.TestCase):
                 rdch = float(rdmol.GetAtomWithIdx(ai).GetProp('_GasteigerCharge'))
                 if not feq(rdch, combiCharges[smi][ai], 1.e-2) :
                     failed=True
-                    print smi, ai, rdch, combiCharges[smi][ai]
+                    print(smi, ai, rdch, combiCharges[smi][ai])
             if failed: rdmol.Debug()
-            self.failIf(failed)
+            self.assertFalse(failed)
                 
     def test2Params(self):
         """ tests handling of Issue187 """
@@ -76,26 +82,19 @@ class TestCase(unittest.TestCase):
         rdPartialCharges.ComputeGasteigerCharges(m1)
 
         m2 = Chem.MolFromSmiles('C(=O)[O-].[Na+]')
-        try:
-            rdPartialCharges.ComputeGasteigerCharges(m2)
-        except:
-            self.fail('should not have hit an exception')
+        rdPartialCharges.ComputeGasteigerCharges(m2)
 
         for i in range(m1.GetNumAtoms()):
             c1 = float(m1.GetAtomWithIdx(i).GetProp('_GasteigerCharge'))
             c2 = float(m2.GetAtomWithIdx(i).GetProp('_GasteigerCharge'))
-            self.failUnless(feq(c1,c2,1e-4))
+            self.assertTrue(feq(c1,c2,1e-4))
             
             
     def test3Params(self):
         """ tests handling of Issue187 """
         m2 = Chem.MolFromSmiles('C(=O)[O-].[Na+]')
-        try:
+        with self.assertRaisesRegexp(Exception, ""):
             rdPartialCharges.ComputeGasteigerCharges(m2,12,1)
-        except:
-            pass
-        else:
-            self.fail('should have hit an exception')
 
 
     def testGithubIssue20(self):
@@ -105,7 +104,27 @@ class TestCase(unittest.TestCase):
         chgs=[-0.030,0.448,-0.427,-0.427]
         for i in range(m1.GetNumAtoms()):
             c1 = float(m1.GetAtomWithIdx(i).GetProp('_GasteigerCharge'))
-            self.failUnlessAlmostEqual(c1,chgs[i],3)
+            self.assertAlmostEqual(c1,chgs[i],3)
+            
+    def testGithubIssue577(self):
+        """ tests handling of Github issue 577 """
+        m1 = Chem.MolFromSmiles('CCO')
+        from locale import setlocale, LC_NUMERIC
+        try:
+            setlocale(LC_NUMERIC, "de_DE")
+        except Exception:
+            # can't set the required locale, might as well just return
+            return
+        try:
+            rdPartialCharges.ComputeGasteigerCharges(m1)
+            for at in m1.GetAtoms():
+                float(at.GetProp('_GasteigerCharge'))
+        finally:
+            setlocale(LC_NUMERIC, "C")
+        rdPartialCharges.ComputeGasteigerCharges(m1)
+        for at in m1.GetAtoms():
+            float(at.GetProp('_GasteigerCharge'))
+        
             
 if __name__== '__main__':
     unittest.main()

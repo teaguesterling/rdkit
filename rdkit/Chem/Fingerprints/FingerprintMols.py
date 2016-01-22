@@ -21,12 +21,13 @@ Sample Usage:
 
 
 """
+from __future__ import print_function
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.ML.Cluster import Murtagh
 from rdkit import DataStructs
 import sys
-import cPickle
+from rdkit.six.moves import cPickle
 
 _cvsVersion="$Id$"
 idx1 = _cvsVersion.find(':')+1
@@ -87,11 +88,8 @@ def FingerprintsFromSmiles(dataSource,idCol,smiCol,
   nDone = 0
   for entry in dataSource:
     id,smi = str(entry[idCol]),str(entry[smiCol])
-    try:
-      mol = Chem.MolFromSmiles(smi)
-    except:
-      mol = None
-    if mol:
+    mol = Chem.MolFromSmiles(smi)
+    if mol is not None:
       fp = FingerprintMol(mol,fingerprinter,**fpArgs)
       res.append((id,fp))
       nDone += 1
@@ -140,11 +138,8 @@ def FingerprintsFromPickles(dataSource,idCol,pklCol,
   nDone = 0
   for entry in dataSource:
     id,pkl = str(entry[idCol]),str(entry[pklCol])
-    try:
-      mol = Chem.Mol(pkl)
-    except:
-      mol = None
-    if mol:
+    mol = Chem.Mol(pkl)
+    if mol is not None:
       fp = FingerprintMol(mol,fingerprinter,**fpArgs)
       res.append((id,fp))
       nDone += 1
@@ -164,7 +159,7 @@ def FingerprintsFromDetails(details,reportFreq=10):
     from rdkit.ML.Data import DataUtils
     try:
       conn = DbConnect(details.dbName,details.tableName)
-    except:
+    except Exception:
       import traceback
       error('Problems establishing connection to database: %s|%s\n'%(details.dbName,
                                                                      details.tableName))
@@ -198,7 +193,7 @@ def FingerprintsFromDetails(details,reportFreq=10):
     dataSet = []
     try:
       s = Chem.SDMolSupplier(details.inFileName)
-    except:
+    except Exception:
       import traceback
       error('Problems reading from file %s\n'%(details.inFileName))
       traceback.print_exc()
@@ -357,7 +352,7 @@ def Usage():
   """  prints a usage string and exits
 
   """
-  print _usageDoc
+  print(_usageDoc)
   sys.exit(-1)
 
 _usageDoc="""
@@ -452,10 +447,7 @@ def ParseArgs(details=None):
 
   """
   import sys,getopt
-  try:
-    args = sys.argv[1:]
-  except:
-    Usage()
+  args = sys.argv[1:]
   try:
     args,extras = getopt.getopt(args,'HVs:d:t:o:h',
                                 [
@@ -490,7 +482,7 @@ def ParseArgs(details=None):
                                  'UPGMA',
 
                                  ])
-  except:
+  except Exception:
     import traceback
     traceback.print_exc()
     Usage()
