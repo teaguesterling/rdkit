@@ -44,7 +44,9 @@
     (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 1))
 /* GNU GCC/G++. these pragmas only work with >v4.1
  * --------------------------------------------- */
+#if(__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
+#endif
 
 #elif defined(__HP_cc) || defined(__HP_aCC)
 /* Hewlett-Packard C/aC++. ---------------------------------- */
