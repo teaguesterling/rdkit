@@ -13,6 +13,8 @@
 #include <boost/shared_array.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/type_traits.hpp>
+#include <boost/type_traits/is_floating_point.hpp>
 #include <boost/utility.hpp>
 #include <vector>
 #include <list>
