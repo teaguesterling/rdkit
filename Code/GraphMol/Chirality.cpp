@@ -658,10 +658,142 @@ std::pair<bool, bool> assignAtomChiralCodes(ROMol &mol, UINT_VECT &ranks,
   return std::make_pair((unassignedAtoms > 0), atomChanged);
 }
 
+// Find bonds than can be cis/trans in a molecule and mark them as "any"
+// - this function finds any double bonds that can potentially be part
+//   of a cis/trans system. No attempt is made here to mark them cis or trans
+//
+// This function is useful in two situations
+//  1) when parsing a mol file; for the bonds marked here, coordinate
+//  informations
+//     on the neighbors can be used to indentify cis or trans states
+//  2) when writing a mol file; bonds that can be cis/trans but not marked as
+//  either
+//     need to be specially marked in the mol file
+//
+//  The CIPranks on the neighboring atoms are check in this function. The
+//  _CIPCode property
+//  if set to any on the double bond.
+//
+// ARGUMENTS:
+//   mol - the molecule of interest
+//   cleanIt - if this option is set to true, any previous marking of _CIPCode
+//               on the bond is cleared - otherwise it is left untouched
+//   force - Force re-running the findPotentialStereoBonds code
+void findPotentialStereoBonds(ROMol &mol, bool cleanIt, bool force) {
+  // FIX: The earlier thought was to provide an optional argument to ignore or
+  // consider
+  //  double bonds in a ring. But I am removing this optional argument and
+  //  ignoring ring bonds
+  //  completely for now. This is because finding a potential stereo bond in a
+  //  ring involves
+  //  more than just checking the CIPranks for the neighbors - SP 05/04/04
+
+  // make this function callable multiple times
+  if ((mol.hasProp(common_properties::_BondsPotentialStereo)) && !(cleanIt || force)) {
+    return;
+  } else {
+    UINT_VECT ranks;
+    ranks.resize(mol.getNumAtoms());
+    bool cipDone = false;
+
+    ROMol::BondIterator bondIt;
+    for (bondIt = mol.beginBonds(); bondIt != mol.endBonds(); ++bondIt) {
+      if ((*bondIt)->getBondType() == Bond::DOUBLE &&
+          !(mol.getRingInfo()->numBondRings((*bondIt)->getIdx()))) {
+        // we are ignoring ring bonds here - read the FIX above
+        Bond *dblBond = *bondIt;
+        // if the bond is flagged as EITHERDOUBLE, we ignore it:
+        if (dblBond->getBondDir() == Bond::EITHERDOUBLE ||
+            dblBond->getStereo() == Bond::STEREOANY) {
+          break;
+        }
+        // proceed only if we either want to clean the stereocode on this bond
+        // or if none is set on it yet
+        if (cleanIt || dblBond->getStereo() == Bond::STEREONONE) {
+          dblBond->setStereo(Bond::STEREONONE);
+          const Atom *begAtom = dblBond->getBeginAtom(),
+                     *endAtom = dblBond->getEndAtom();
+          // we're only going to handle 2 or three coordinate atoms:
+          if ((begAtom->getDegree() == 2 || begAtom->getDegree() == 3) &&
+              (endAtom->getDegree() == 2 || endAtom->getDegree() == 3)) {
+            // ------------------
+            // get the CIP ranking of each atom if we need it:
+            if (!cipDone) {
+              Chirality::assignAtomCIPRanks(mol, ranks);
+              cipDone = true;
+            }
+            // find the neighbors for the begin atom and the endAtom
+            UINT_VECT begAtomNeighbors, endAtomNeighbors;
+            Chirality::findAtomNeighborsHelper(mol, begAtom, dblBond,
+                                               begAtomNeighbors);
+            Chirality::findAtomNeighborsHelper(mol, endAtom, dblBond,
+                                               endAtomNeighbors);
+            if (begAtomNeighbors.size() > 0 && endAtomNeighbors.size() > 0) {
+              if ((begAtomNeighbors.size() == 2) &&
+                  (endAtomNeighbors.size() == 2)) {
+                // if both of the atoms have 2 neighbors (other than the one
+                // connected
+                // by the double bond) and ....
+                if ((ranks[begAtomNeighbors[0]] !=
+                     ranks[begAtomNeighbors[1]]) &&
+                    (ranks[endAtomNeighbors[0]] !=
+                     ranks[endAtomNeighbors[1]])) {
+                  // the neighbors ranks are different at both the ends,
+                  // this bond can be part of a cis/trans system
+                  if (ranks[begAtomNeighbors[0]] > ranks[begAtomNeighbors[1]]) {
+                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
+                  } else {
+                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[1]);
+                  }
+                  if (ranks[endAtomNeighbors[0]] > ranks[endAtomNeighbors[1]]) {
+                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
+                  } else {
+                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[1]);
+                  }
+                }
+              } else if (begAtomNeighbors.size() == 2) {
+                // if the begAtom has two neighbors and ....
+                if (ranks[begAtomNeighbors[0]] != ranks[begAtomNeighbors[1]]) {
+                  // their ranks are different
+                  if (ranks[begAtomNeighbors[0]] > ranks[begAtomNeighbors[1]]) {
+                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
+                  } else {
+                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[1]);
+                  }
+                  dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
+                }
+              } else if (endAtomNeighbors.size() == 2) {
+                // if the endAtom has two neighbors and ...
+                if (ranks[endAtomNeighbors[0]] != ranks[endAtomNeighbors[1]]) {
+                  // their ranks are different
+                  dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
+                  if (ranks[endAtomNeighbors[0]] > ranks[endAtomNeighbors[1]]) {
+                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
+                  } else {
+                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[1]);
+                  }
+                }
+              } else {
+                // end and beg atoms has only one neighbor each, it doesn't
+                // matter what the ranks are:
+                dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
+                dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
+              }  // end of different number of neighbors on beg and end atoms
+            }  // end of check that beg and end atoms have at least 1 neighbor:
+          }    // end of 2 and 3 coordinated atoms only
+        }      // end of we want it or CIP code is not set
+      }        // end of double bond
+    }          // end of for loop over all bonds
+    mol.setProp(common_properties::_BondsPotentialStereo, 1, true);
+  }
+}
+
+
 // returns a pair:
 //   1) are there unassigned stereo bonds?
 //   2) did we assign any?
-std::pair<bool, bool> assignBondStereoCodes(ROMol &mol, UINT_VECT &ranks) {
+std::pair<bool, bool> assignBondStereoCodes(ROMol &mol, UINT_VECT &ranks,
+                                            bool flagPossibleStereoCenters) {
   PRECONDITION((!ranks.size() || ranks.size() == mol.getNumAtoms()),
                "bad rank vector size");
   bool assignedABond = false;
@@ -739,6 +871,7 @@ std::pair<bool, bool> assignBondStereoCodes(ROMol &mol, UINT_VECT &ranks) {
             }
             dblBond->getStereoAtoms().push_back(begNbrAid);
             dblBond->getStereoAtoms().push_back(endNbrAid);
+            std::string cipCode;
             if (hasExplicitUnknownStereo) {
               dblBond->setStereo(Bond::STEREOANY);
               assignedABond = true;
@@ -749,16 +882,31 @@ std::pair<bool, bool> assignBondStereoCodes(ROMol &mol, UINT_VECT &ranks) {
               // This means that if the single bonds point in the same
               // direction, the bond is cis, "Z"
               dblBond->setStereo(Bond::STEREOZ);
+              cipCode = "Z";
               assignedABond = true;
             } else {
               dblBond->setStereo(Bond::STEREOE);
+              cipCode = "E";
               assignedABond = true;
             }
+            if (dblBond->hasProp(common_properties::_ChiralityPossible)) {
+              dblBond->clearProp(common_properties::_ChiralityPossible);
+            }
+            if (!cipCode.empty()) {
+              dblBond->setProp(common_properties::_CIPCode, cipCode);
+            }
             --unassignedBonds;
+          } else {
+            if (flagPossibleStereoCenters) {
+              dblBond->setProp(common_properties::_ChiralityPossible,1,true);
+            }
           }
         }
       }
     }
+  }
+  if(flagPossibleStereoCenters && unassignedBonds > 0) {
+    findPotentialStereoBonds(mol, false, true);
   }
   return std::make_pair(unassignedBonds > 0, assignedABond);
 }
@@ -869,7 +1017,7 @@ void assignStereochemistry(ROMol &mol, bool cleanIt, bool force,
       hasStereoAtoms = true;
     }
   }
-  bool hasStereoBonds = false;
+  bool hasStereoBonds = flagPossibleStereoCenters;
   for (ROMol::BondIterator bondIt = mol.beginBonds(); bondIt != mol.endBonds();
        ++bondIt) {
     if (cleanIt) {
@@ -915,7 +1063,8 @@ void assignStereochemistry(ROMol &mol, bool cleanIt, bool force,
     }
     if (hasStereoBonds) {
       boost::tie(hasStereoBonds, changedStereoBonds) =
-          Chirality::assignBondStereoCodes(mol, atomRanks);
+          Chirality::assignBondStereoCodes(mol, atomRanks,
+                                           flagPossibleStereoCenters);
     } else {
       changedStereoBonds = false;
     }
@@ -981,135 +1130,6 @@ void assignStereochemistry(ROMol &mol, bool cleanIt, bool force,
       mol.debugMol(std::cerr);
       std::cerr<<"<<<<<<<<<<<<<<<<\n";
 #endif
-}
-
-// Find bonds than can be cis/trans in a molecule and mark them as "any"
-// - this function finds any double bonds that can potentially be part
-//   of a cis/trans system. No attempt is made here to mark them cis or trans
-//
-// This function is useful in two situations
-//  1) when parsing a mol file; for the bonds marked here, coordinate
-//  informations
-//     on the neighbors can be used to indentify cis or trans states
-//  2) when writing a mol file; bonds that can be cis/trans but not marked as
-//  either
-//     need to be specially marked in the mol file
-//
-//  The CIPranks on the neighboring atoms are check in this function. The
-//  _CIPCode property
-//  if set to any on the double bond.
-//
-// ARGUMENTS:
-//   mol - the molecule of interest
-//   cleanIt - if this option is set to true, any previous marking of _CIPCode
-//               on the bond is cleared - otherwise it is left untouched
-void findPotentialStereoBonds(ROMol &mol, bool cleanIt) {
-  // FIX: The earlier thought was to provide an optional argument to ignore or
-  // consider
-  //  double bonds in a ring. But I am removing this optional argument and
-  //  ignoring ring bonds
-  //  completely for now. This is because finding a potential stereo bond in a
-  //  ring involves
-  //  more than just checking the CIPranks for the neighbors - SP 05/04/04
-
-  // make this function callable multiple times
-  if ((mol.hasProp(common_properties::_BondsPotentialStereo)) && (!cleanIt)) {
-    return;
-  } else {
-    UINT_VECT ranks;
-    ranks.resize(mol.getNumAtoms());
-    bool cipDone = false;
-
-    ROMol::BondIterator bondIt;
-    for (bondIt = mol.beginBonds(); bondIt != mol.endBonds(); ++bondIt) {
-      if ((*bondIt)->getBondType() == Bond::DOUBLE &&
-          !(mol.getRingInfo()->numBondRings((*bondIt)->getIdx()))) {
-        // we are ignoring ring bonds here - read the FIX above
-        Bond *dblBond = *bondIt;
-        // if the bond is flagged as EITHERDOUBLE, we ignore it:
-        if (dblBond->getBondDir() == Bond::EITHERDOUBLE ||
-            dblBond->getStereo() == Bond::STEREOANY) {
-          break;
-        }
-        // proceed only if we either want to clean the stereocode on this bond
-        // or if none is set on it yet
-        if (cleanIt || dblBond->getStereo() == Bond::STEREONONE) {
-          dblBond->setStereo(Bond::STEREONONE);
-          const Atom *begAtom = dblBond->getBeginAtom(),
-                     *endAtom = dblBond->getEndAtom();
-          // we're only going to handle 2 or three coordinate atoms:
-          if ((begAtom->getDegree() == 2 || begAtom->getDegree() == 3) &&
-              (endAtom->getDegree() == 2 || endAtom->getDegree() == 3)) {
-            // ------------------
-            // get the CIP ranking of each atom if we need it:
-            if (!cipDone) {
-              Chirality::assignAtomCIPRanks(mol, ranks);
-              cipDone = true;
-            }
-            // find the neighbors for the begin atom and the endAtom
-            UINT_VECT begAtomNeighbors, endAtomNeighbors;
-            Chirality::findAtomNeighborsHelper(mol, begAtom, dblBond,
-                                               begAtomNeighbors);
-            Chirality::findAtomNeighborsHelper(mol, endAtom, dblBond,
-                                               endAtomNeighbors);
-            if (begAtomNeighbors.size() > 0 && endAtomNeighbors.size() > 0) {
-              if ((begAtomNeighbors.size() == 2) &&
-                  (endAtomNeighbors.size() == 2)) {
-                // if both of the atoms have 2 neighbors (other than the one
-                // connected
-                // by the double bond) and ....
-                if ((ranks[begAtomNeighbors[0]] !=
-                     ranks[begAtomNeighbors[1]]) &&
-                    (ranks[endAtomNeighbors[0]] !=
-                     ranks[endAtomNeighbors[1]])) {
-                  // the neighbors ranks are different at both the ends,
-                  // this bond can be part of a cis/trans system
-                  if (ranks[begAtomNeighbors[0]] > ranks[begAtomNeighbors[1]]) {
-                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
-                  } else {
-                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[1]);
-                  }
-                  if (ranks[endAtomNeighbors[0]] > ranks[endAtomNeighbors[1]]) {
-                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
-                  } else {
-                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[1]);
-                  }
-                }
-              } else if (begAtomNeighbors.size() == 2) {
-                // if the begAtom has two neighbors and ....
-                if (ranks[begAtomNeighbors[0]] != ranks[begAtomNeighbors[1]]) {
-                  // their ranks are different
-                  if (ranks[begAtomNeighbors[0]] > ranks[begAtomNeighbors[1]]) {
-                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
-                  } else {
-                    dblBond->getStereoAtoms().push_back(begAtomNeighbors[1]);
-                  }
-                  dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
-                }
-              } else if (endAtomNeighbors.size() == 2) {
-                // if the endAtom has two neighbors and ...
-                if (ranks[endAtomNeighbors[0]] != ranks[endAtomNeighbors[1]]) {
-                  // their ranks are different
-                  dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
-                  if (ranks[endAtomNeighbors[0]] > ranks[endAtomNeighbors[1]]) {
-                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
-                  } else {
-                    dblBond->getStereoAtoms().push_back(endAtomNeighbors[1]);
-                  }
-                }
-              } else {
-                // end and beg atoms has only one neighbor each, it doesn't
-                // matter what the ranks are:
-                dblBond->getStereoAtoms().push_back(begAtomNeighbors[0]);
-                dblBond->getStereoAtoms().push_back(endAtomNeighbors[0]);
-              }  // end of different number of neighbors on beg and end atoms
-            }  // end of check that beg and end atoms have at least 1 neighbor:
-          }    // end of 2 and 3 coordinated atoms only
-        }      // end of we want it or CIP code is not set
-      }        // end of double bond
-    }          // end of for loop over all bonds
-    mol.setProp(common_properties::_BondsPotentialStereo, 1, true);
-  }
 }
 
 // removes chirality markers from sp and sp2 hybridized centers:
