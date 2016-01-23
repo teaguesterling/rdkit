@@ -97,6 +97,38 @@ def FindMolChiralCenters(mol,force=True,includeUnassigned=False):
       centers.append((atom.GetIdx(),'?'))
   return centers
 
+def FindMolEZChiralCenters(mol,force=True,includeUnassigned=False):
+  """
+    >>> from rdkit import Chem
+    >>> mol = Chem.MolFromSmiles('C/C=C/C')
+    >>> FindMolEZChiralCenters(mol)
+    [(1, 'Z', (0, 2))]
+    >>> mol = Chem.MolFromSmiles(r'C/C=C\C')
+    >>> FindMolEZChiralCenters(mol)
+    [(1, 'E'), (0, 2)]
+  
+    >>> FindMolEZChiralCenters(Chem.MolFromSmiles('CCC'))
+    []
+
+    By default unassigned stereo centers are not reported:
+    >>> mol = Chem.MolFromSmiles('C/C=C/C=CC')
+    >>> FindMolEZChiralCenters(mol,force=True)
+    [(1, 'Z', (0, 1))]
+
+    but this can be changed:
+    >>> FindMolEZChiralCenters(mol,force=True,includeUnassigned=True)
+    [(1, 'Z', (0, 1), (3, '?', (2, 5)]
+
+  """
+  AssignStereochemistry(mol,force=force, flagPossibleStereoCenters=includeUnassigned)
+  centers = []
+  for bond in mol.GetBonds():
+    if bond.HasProp('_CIPCode'):
+      centers.append((bond.GetIdx(), bond.GetProp('_CIPCode'), tuple(bond.GetStereoAtoms())))
+    elif includeUnassigned and bond.HasProp('_ChiralityPossible'):
+      centers.append((bond.GetIdx(), '?', tuple(bond.GetStereoAtoms())))
+  return centers
+
 #------------------------------------
 #
 #  doctest boilerplate
