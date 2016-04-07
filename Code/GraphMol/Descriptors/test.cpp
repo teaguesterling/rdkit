@@ -29,6 +29,8 @@
 
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Descriptors/Crippen.h>
+#include <GraphMol/PeriodicTable.h>
+#include <GraphMol/atomic_data.h>
 
 #include <DataStructs/BitVects.h>
 #include <DataStructs/BitOps.h>
@@ -340,6 +342,9 @@ void testTPSA() {
   BOOST_LOG(rdErrorLog) << "  done" << std::endl;
 }
 
+const std::string NonStrictRotProp = "NUM_ROTATABLEBONDS_O";
+const std::string StrictRotProp = "NUM_ROTATABLEBONDS";
+
 void testLipinski1() {
   BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
   BOOST_LOG(rdErrorLog) << "    Test Lipinski parameters." << std::endl;
@@ -348,6 +353,15 @@ void testLipinski1() {
   fName += "/Data/NCI/first_200.props.sdf";
   SDMolSupplier suppl(fName);
   int idx = -1;
+  // Figure out which rotatable bond version we are using
+  std::string rot_prop = StrictRotProp;
+  {
+    const bool sanitize=true;
+    ROMol *test_mol = SmilesToMol("CC(C)(C)c1cc(O)c(cc1O)C(C)(C)C", 0, sanitize);
+    if (calcNumRotatableBonds(*test_mol) == 2)
+      rot_prop = NonStrictRotProp;
+    delete test_mol;
+  }
   while (!suppl.atEnd()) {
     ROMol *mol = 0;
     ++idx;
@@ -415,15 +429,33 @@ void testLipinski1() {
     }
     TEST_ASSERT(oVal == nVal);
 
-    mol->getProp("NUM_ROTATABLEBONDS", foo);
+    mol->getProp(rot_prop, foo);
     oVal = boost::lexical_cast<unsigned int>(foo);
     nVal = calcNumRotatableBonds(*mol);
     if (oVal != nVal) {
       std::cerr << "  failed: " << idx << " " << oVal << " " << nVal
-                << std::endl;
+                << " using stored sd prop " << rot_prop << std::endl;
     }
     TEST_ASSERT(oVal == nVal);
 
+    mol->getProp(NonStrictRotProp, foo);
+    oVal = boost::lexical_cast<unsigned int>(foo);
+    nVal = calcNumRotatableBonds(*mol, NonStrict);
+    if (oVal != nVal) {
+      std::cerr << "  failed: " << idx << " " << oVal << " " << nVal
+                << " using stored sd prop " << rot_prop << std::endl;
+    }
+    TEST_ASSERT(oVal == nVal);
+
+    mol->getProp(StrictRotProp, foo);
+    oVal = boost::lexical_cast<unsigned int>(foo);
+    nVal = calcNumRotatableBonds(*mol, Strict);
+    if (oVal != nVal) {
+      std::cerr << "  failed: " << idx << " " << oVal << " " << nVal
+                << " using stored sd prop " << rot_prop << std::endl;
+    }
+    TEST_ASSERT(oVal == nVal);
+    
     delete mol;
   }
 
@@ -1457,6 +1489,15 @@ void testMQNs() {
                             0,  66, 35, 0, 25, 30, 21, 2,  2, 0, 0, 6,   12, 6,
                             0,  70, 26, 0, 0,  0,  2,  16, 0, 0, 0, 0,   10, 5};
 
+    // Figure out which rotatable bond version we are using
+    //  and update the test accordingly
+    {
+      const bool sanitize=true;
+      ROMol *test_mol = SmilesToMol("CC(C)(C)c1cc(O)c(cc1O)C(C)(C)C", 0, sanitize);
+      if (calcNumRotatableBonds(*test_mol) == 2)
+        tgt[18] = 26;
+    }
+
     std::vector<unsigned int> accum(42, 0);
 
     std::string fName = getenv("RDBASE");
@@ -1729,6 +1770,44 @@ void testSpiroAndBridgeheads() {
   BOOST_LOG(rdErrorLog) << "  done" << std::endl;
 }
 
+void testGitHubIssue694() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog)
+      << "    Test Github694: ExactMolWt ignoring the mass of the electron"
+      << std::endl;
+
+  {
+    ROMol *mol = SmilesToMol("[35Cl]");
+    TEST_ASSERT(mol);
+    double mw = calcExactMW(*mol);
+    TEST_ASSERT(
+        feq(mw, PeriodicTable::getTable()->getMassForIsotope(17, 35), .000001));
+    delete mol;
+    mol = SmilesToMol("[35Cl-]");
+    TEST_ASSERT(mol);
+    mw = calcExactMW(*mol);
+    TEST_ASSERT(feq(mw, PeriodicTable::getTable()->getMassForIsotope(17, 35) +
+                            constants::electronMass,
+                    .000001));
+    delete mol;
+    mol = SmilesToMol("[35Cl+]");
+    TEST_ASSERT(mol);
+    mw = calcExactMW(*mol);
+    TEST_ASSERT(feq(mw, PeriodicTable::getTable()->getMassForIsotope(17, 35) -
+                            constants::electronMass,
+                    .000001));
+    delete mol;
+    mol = SmilesToMol("[35Cl+2]");
+    TEST_ASSERT(mol);
+    mw = calcExactMW(*mol);
+    TEST_ASSERT(feq(mw, PeriodicTable::getTable()->getMassForIsotope(17, 35) -
+                            2 * constants::electronMass,
+                    .000001));
+    delete mol;
+  }
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 //
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
@@ -1764,4 +1843,5 @@ int main() {
 #endif
   testGitHubIssue463();
   testSpiroAndBridgeheads();
+  testGitHubIssue694();
 }

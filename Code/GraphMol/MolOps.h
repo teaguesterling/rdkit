@@ -391,13 +391,18 @@ int setAromaticity(RWMol &mol);
 /*!
 
     Currently this:
-     - modifies nitro groups, so that the nitrogen does not have a unreasonable
+     - modifies nitro groups, so that the nitrogen does not have an unreasonable
        valence of 5, as follows:
-         - the nitrogen gets a positve charge
+         - the nitrogen gets a positive charge
          - one of the oxygens gets a negative chage and the double bond to this
            oxygen is changed to a single bond
        The net result is that nitro groups can be counted on to be:
          \c "[N+](=O)[O-]"
+     - modifies halogen-oxygen containing species as follows:
+        \c [Cl,Br,I](=O)(=O)(=O)O -> [X+3]([O-])([O-])([O-])O
+        \c [Cl,Br,I](=O)(=O)O -> [X+3]([O-])([O-])O
+        \c [Cl,Br,I](=O)O -> [X+]([O-])O
+     - converts the substructure [N,C]=P(=O)-* to [N,C]=[P+](-[O-])-*
 
    \param mol    the molecule of interest
 
