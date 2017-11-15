@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2001-2010 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2001-2017 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -15,18 +14,14 @@
 
 namespace RDKit {
 
-Bond::Bond() {
-  initBond();
-  dp_props = new Dict();
-};
+Bond::Bond() : RDProps() { initBond(); };
 
-Bond::Bond(BondType bT) {
+Bond::Bond(BondType bT) : RDProps() {
   initBond();
   d_bondType = bT;
-  dp_props = new Dict();
 };
 
-Bond::Bond(const Bond &other) {
+Bond::Bond(const Bond &other) : RDProps(other) {
   // NOTE: we do *not* copy ownership!
   dp_mol = 0;
   d_bondType = other.d_bondType;
@@ -42,17 +37,9 @@ Bond::Bond(const Bond &other) {
   df_isAromatic = other.df_isAromatic;
   df_isConjugated = other.df_isConjugated;
   d_index = other.d_index;
-  if (other.dp_props) {
-    dp_props = new Dict(*other.dp_props);
-  } else {
-    dp_props = new Dict();
-  }
 }
 
-Bond::~Bond() {
-  delete dp_props;
-  delete dp_stereoAtoms;
-}
+Bond::~Bond() { delete dp_stereoAtoms; }
 
 Bond &Bond::operator=(const Bond &other) {
   dp_mol = other.dp_mol;
@@ -68,11 +55,7 @@ Bond &Bond::operator=(const Bond &other) {
   df_isAromatic = other.df_isAromatic;
   df_isConjugated = other.df_isConjugated;
   d_index = other.d_index;
-  if (other.dp_props) {
-    dp_props = new Dict(*other.dp_props);
-  } else {
-    dp_props = new Dict();
-  }
+  dp_props = other.dp_props;
 
   return *this;
 }
@@ -99,12 +82,12 @@ unsigned int Bond::getOtherAtomIdx(const unsigned int thisIdx) const {
 }
 
 void Bond::setBeginAtomIdx(unsigned int what) {
-  if (dp_mol) URANGE_CHECK(what, getOwningMol().getNumAtoms() - 1);
+  if (dp_mol) URANGE_CHECK(what, getOwningMol().getNumAtoms());
   d_beginAtomIdx = what;
 };
 
 void Bond::setEndAtomIdx(unsigned int what) {
-  if (dp_mol) URANGE_CHECK(what, getOwningMol().getNumAtoms() - 1);
+  if (dp_mol) URANGE_CHECK(what, getOwningMol().getNumAtoms());
   d_endAtomIdx = what;
 };
 
@@ -315,6 +298,20 @@ void Bond::initBond() {
   d_index = 0;
   df_isConjugated = 0;
   dp_stereoAtoms = NULL;
+};
+
+void Bond::setStereoAtoms(unsigned int bgnIdx, unsigned int endIdx) {
+  PRECONDITION(
+      getOwningMol().getBondBetweenAtoms(getBeginAtomIdx(), bgnIdx) != NULL,
+      "bgnIdx not connected to begin atom of bond");
+  PRECONDITION(
+      getOwningMol().getBondBetweenAtoms(getEndAtomIdx(), endIdx) != NULL,
+      "endIdx not connected to end atom of bond");
+
+  INT_VECT &atoms = getStereoAtoms();
+  atoms.clear();
+  atoms.push_back(bgnIdx);
+  atoms.push_back(endIdx);
 };
 
 };  // end o' namespace

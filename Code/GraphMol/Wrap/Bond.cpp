@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2003-2014 Rational Discovery LLC
+//  Copyright (C) 2003-2017 Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -22,32 +21,6 @@
 
 namespace python = boost::python;
 namespace RDKit {
-
-namespace {
-std::string qhelper(Bond::QUERYBOND_QUERY *q, unsigned int depth) {
-  std::ostringstream res;
-
-  if (q) {
-    for (unsigned int i = 0; i < depth; ++i) res << "  ";
-    res << q->getFullDescription();
-    if (q->getNegation()) res << " ! ";
-
-    res << "\n";
-    for (Bond::QUERYBOND_QUERY::CHILD_VECT_CI ci = q->beginChildren();
-         ci != q->endChildren(); ++ci) {
-      res << qhelper((*ci).get(), depth + 1);
-    }
-  }
-  return res.str();
-}
-}  // end of local namespace
-std::string describeQuery(const Bond *bond) {
-  std::string res = "";
-  if (bond->hasQuery()) {
-    res = qhelper(bond->getQuery(), 0);
-  }
-  return res;
-}
 
 void expandQuery(QueryBond *self, const QueryBond *other,
                  Queries::CompositeQueryType how, bool maintainOrder) {
@@ -127,14 +100,16 @@ struct bond_wrapper {
              "Set the type of the bond as a BondDir\n")
 
         .def("GetStereo", &Bond::getStereo,
-             "Returns the CIP-classification of the bond as a BondStereo\n")
-        // this is no longer exposed because it requires that stereo atoms
-        // be set. This is a task that is tricky and "dangerous".
-        //.def("SetStereo",&Bond::setStereo,
-        //	   "Set the CIP-classification of the bond as a BondStereo\n")
+             "Returns the stereo configuration of the bond as a BondStereo\n")
+        .def("SetStereo", &Bond::setStereo,
+             "Set the stereo configuration of the bond as a BondStereo\n")
         .def("GetStereoAtoms", getBondStereoAtoms,
              "Returns the indices of the atoms setting this bond's "
-             "stereochemistry.")
+             "stereochemistry.\n")
+        .def("SetStereoAtoms", &Bond::setStereoAtoms,
+             "Set the indices of the atoms setting this bond's "
+             "stereochemistry.\n")
+
         .def("GetValenceContrib",
              (double (Bond::*)(const Atom *) const) & Bond::getValenceContrib,
              "Returns the contribution of the bond to the valence of an "
@@ -227,7 +202,7 @@ struct bond_wrapper {
              "  ARGUMENTS:\n"
              "    - key: the name of the property to be set (a string).\n"
              "    - value: the property value (an int >= 0).\n\n")
-        
+
         .def("GetIntProp", GetProp<Bond, int>,
              "Returns the value of the property.\n\n"
              "  ARGUMENTS:\n"
@@ -240,12 +215,13 @@ struct bond_wrapper {
         .def("GetUnsignedProp", GetProp<Bond, unsigned int>,
              "Returns the value of the property.\n\n"
              "  ARGUMENTS:\n"
-             "    - key: the name of the property to return (an unsigned integer).\n\n"
+             "    - key: the name of the property to return (an unsigned "
+             "integer).\n\n"
              "  RETURNS: an int (Python has no unsigned type)\n\n"
              "  NOTE:\n"
              "    - If the property has not been set, a KeyError exception "
              "will be raised.\n")
-        
+
         .def("SetDoubleProp", BondSetProp<double>,
              (python::arg("self"), python::arg("key"), python::arg("val")),
              "Sets a bond property\n\n"
@@ -290,13 +266,17 @@ struct bond_wrapper {
              "  ARGUMENTS:\n"
              "    - key: the name of the property to be removed.\n")
 
-        .def("GetPropNames", &Bond::getPropList, (python::arg("self")),
+        .def("GetPropNames", &Bond::getPropList,
+             (python::arg("self"), python::arg("includePrivate") = false,
+              python::arg("includeComputed") = false),
              "Returns a list of the properties set on the Bond.\n\n")
 
-        .def("GetPropsAsDict", GetPropsAsDict<Bond>, (python::arg("self")),
+        .def("GetPropsAsDict", GetPropsAsDict<Bond>,
+             (python::arg("self"), python::arg("includePrivate") = true,
+              python::arg("includeComputed") = true),
              "Returns a dictionary of the properties set on the Bond.\n"
              " n.b. some properties cannot be converted to python types.\n")
-        
+
         ;
 
     python::enum_<Bond::BondType>("BondType")
@@ -328,12 +308,15 @@ struct bond_wrapper {
         .value("BEGINDASH", Bond::BEGINDASH)
         .value("ENDDOWNRIGHT", Bond::ENDDOWNRIGHT)
         .value("ENDUPRIGHT", Bond::ENDUPRIGHT)
+        .value("EITHERDOUBLE", Bond::EITHERDOUBLE)
         .value("UNKNOWN", Bond::UNKNOWN);
     python::enum_<Bond::BondStereo>("BondStereo")
         .value("STEREONONE", Bond::STEREONONE)
         .value("STEREOANY", Bond::STEREOANY)
         .value("STEREOZ", Bond::STEREOZ)
-        .value("STEREOE", Bond::STEREOE);
+        .value("STEREOE", Bond::STEREOE)
+        .value("STEREOCIS", Bond::STEREOCIS)
+        .value("STEREOTRANS", Bond::STEREOTRANS);
 
     bondClassDoc =
         "The class to store QueryBonds.\n\

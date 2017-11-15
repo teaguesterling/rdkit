@@ -69,7 +69,7 @@ namespace {
 %token COLON_TOKEN UNDERSCORE_TOKEN
 %token <bond> BOND_TOKEN
 %type <moli> cmpd mol branch
-%type <atom> atomd simple_atom
+%type <atom> atomd simple_atom hydrogen_atom
 %type <atom> atom_expr point_query atom_query recursive_query
 %type <ival> ring_number nonzero_number number charge_spec digit
 %type <bond> bondd bond_expr bond_query
@@ -251,15 +251,7 @@ branch:	GROUP_OPEN_TOKEN mol GROUP_CLOSE_TOKEN { $$ = $2; }
 
 /* --------------------------------------------------------------- */
 atomd:	simple_atom
-| ATOM_OPEN_TOKEN H_TOKEN ATOM_CLOSE_TOKEN
-{
-  $$ = new QueryAtom(1);
-}
-| ATOM_OPEN_TOKEN H_TOKEN COLON_TOKEN number ATOM_CLOSE_TOKEN
-{
-  $$ = new QueryAtom(1);
-  $$->setProp(RDKit::common_properties::molAtomMapNumber,$4);
-}
+| hydrogen_atom
 | ATOM_OPEN_TOKEN atom_expr ATOM_CLOSE_TOKEN
 {
   $$ = $2;
@@ -270,6 +262,81 @@ atomd:	simple_atom
   $$->setProp(RDKit::common_properties::molAtomMapNumber,$4);
 }
 ;
+
+
+/* --------------------------------------------------------------- */
+/*
+Some ugliness here around how Hs are handled. This is due to this paragraph
+in the SMIRKS docs, of all places:
+http://www.daylight.com/dayhtml/doc/theory/theory.smirks.html
+
+Hence, a single change to SMARTS interpretation, for expressions of the form:
+[<weight>]H<charge><map>]. In SMARTS, these expressions now are interpreted as
+a hydrogen atom, rather than as any atom with one hydrogen attached.
+All other SMARTS hydrogen expressions retain their pre-4.51 meanings.
+
+Thanks to John Mayfield for pointing this out.
+*/
+
+/* --------------------------------------------------------------- */
+hydrogen_atom:	ATOM_OPEN_TOKEN H_TOKEN ATOM_CLOSE_TOKEN
+{
+  $$ = new QueryAtom(1);
+}
+| ATOM_OPEN_TOKEN H_TOKEN COLON_TOKEN number ATOM_CLOSE_TOKEN
+{
+  $$ = new QueryAtom(1);
+  $$->setProp(RDKit::common_properties::molAtomMapNumber,$4);
+}
+| ATOM_OPEN_TOKEN number H_TOKEN ATOM_CLOSE_TOKEN {
+  QueryAtom *newQ = new QueryAtom(1);
+  newQ->setIsotope($2);
+  newQ->expandQuery(makeAtomIsotopeQuery($2),Queries::COMPOSITE_AND,true);
+  $$=newQ;
+}
+| ATOM_OPEN_TOKEN number H_TOKEN COLON_TOKEN number ATOM_CLOSE_TOKEN {
+  QueryAtom *newQ = new QueryAtom(1);
+  newQ->setIsotope($2);
+  newQ->expandQuery(makeAtomIsotopeQuery($2),Queries::COMPOSITE_AND,true);
+  newQ->setProp(RDKit::common_properties::molAtomMapNumber,$5);
+
+  $$=newQ;
+}
+
+| ATOM_OPEN_TOKEN H_TOKEN charge_spec ATOM_CLOSE_TOKEN {
+  QueryAtom *newQ = new QueryAtom(1);
+  newQ->expandQuery(makeAtomFormalChargeQuery($3),Queries::COMPOSITE_AND,true);
+  $$=newQ;
+}
+| ATOM_OPEN_TOKEN H_TOKEN charge_spec COLON_TOKEN number ATOM_CLOSE_TOKEN {
+  QueryAtom *newQ = new QueryAtom(1);
+  newQ->expandQuery(makeAtomFormalChargeQuery($3),Queries::COMPOSITE_AND,true);
+  newQ->setProp(RDKit::common_properties::molAtomMapNumber,$5);
+
+  $$=newQ;
+}
+| ATOM_OPEN_TOKEN number H_TOKEN charge_spec ATOM_CLOSE_TOKEN {
+  QueryAtom *newQ = new QueryAtom(1);
+  newQ->setIsotope($2);
+  newQ->expandQuery(makeAtomIsotopeQuery($2),Queries::COMPOSITE_AND,true);
+  newQ->expandQuery(makeAtomFormalChargeQuery($4),Queries::COMPOSITE_AND,true);
+  $$=newQ;
+}
+| ATOM_OPEN_TOKEN number H_TOKEN charge_spec COLON_TOKEN number ATOM_CLOSE_TOKEN {
+  QueryAtom *newQ = new QueryAtom(1);
+  newQ->setIsotope($2);
+  newQ->expandQuery(makeAtomIsotopeQuery($2),Queries::COMPOSITE_AND,true);
+  newQ->expandQuery(makeAtomFormalChargeQuery($4),Queries::COMPOSITE_AND,true);
+  newQ->setProp(RDKit::common_properties::molAtomMapNumber,$6);
+
+  $$=newQ;
+}
+;
+
+
+
+
+
 
 /* --------------------------------------------------------------- */
 atom_expr: atom_expr AND_TOKEN atom_expr {
@@ -366,18 +433,21 @@ atom_query:	simple_atom
 }
 | RINGSIZE_ATOM_QUERY_TOKEN
 | RINGSIZE_ATOM_QUERY_TOKEN number {
-  delete $1->getQuery();
   $1->setQuery(makeAtomMinRingSizeQuery($2));
 }
 | RINGBOND_ATOM_QUERY_TOKEN
 | RINGBOND_ATOM_QUERY_TOKEN number {
-  delete $1->getQuery();
   $1->setQuery(makeAtomRingBondCountQuery($2));
 }
 | IMPLICIT_H_ATOM_QUERY_TOKEN
 | IMPLICIT_H_ATOM_QUERY_TOKEN number {
-  delete $1->getQuery();
   $1->setQuery(makeAtomImplicitHCountQuery($2));
+}
+| simple_atom H_TOKEN number {
+  $$->expandQuery(makeAtomHCountQuery($3),Queries::COMPOSITE_AND);
+}
+| simple_atom H_TOKEN {
+  $$->expandQuery(makeAtomHCountQuery(1),Queries::COMPOSITE_AND);
 }
 | H_TOKEN number {
   QueryAtom *newQ = new QueryAtom();
@@ -502,6 +572,11 @@ charge_spec: PLUS_TOKEN PLUS_TOKEN { $$=2; }
 /* --------------------------------------------------------------- */
 ring_number:  digit
 | PERCENT_TOKEN NONZERO_DIGIT_TOKEN digit { $$ = $2*10+$3; }
+| PERCENT_TOKEN GROUP_OPEN_TOKEN digit GROUP_CLOSE_TOKEN { $$ = $3; }
+| PERCENT_TOKEN GROUP_OPEN_TOKEN digit digit GROUP_CLOSE_TOKEN { $$ = $3*10+$4; }
+| PERCENT_TOKEN GROUP_OPEN_TOKEN digit digit digit GROUP_CLOSE_TOKEN { $$ = $3*100+$4*10+$5; }
+| PERCENT_TOKEN GROUP_OPEN_TOKEN digit digit digit digit GROUP_CLOSE_TOKEN { $$ = $3*1000+$4*100+$5*10+$6; }
+| PERCENT_TOKEN GROUP_OPEN_TOKEN digit digit digit digit digit GROUP_CLOSE_TOKEN { $$ = $3*10000+$4*1000+$5*100+$6*10+$7; }
 ;
 
 

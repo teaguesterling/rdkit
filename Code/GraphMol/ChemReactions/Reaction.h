@@ -121,9 +121,21 @@ class ChemicalReaction {
   ChemicalReaction(const ChemicalReaction &other) {
     df_needsInit = other.df_needsInit;
     df_implicitProperties = other.df_implicitProperties;
-    m_reactantTemplates = other.m_reactantTemplates;
-    m_productTemplates = other.m_productTemplates;
-    m_agentTemplates = other.m_agentTemplates;
+    for (MOL_SPTR_VECT::const_iterator iter = other.beginReactantTemplates();
+             iter != other.endReactantTemplates(); ++iter) {
+      ROMol *reactant = new ROMol(**iter);
+      m_reactantTemplates.push_back(ROMOL_SPTR(reactant));
+    }
+    for (MOL_SPTR_VECT::const_iterator iter = other.beginProductTemplates();
+             iter != other.endProductTemplates(); ++iter) {
+      ROMol *product = new ROMol(**iter);
+      m_productTemplates.push_back(ROMOL_SPTR(product));
+    }
+    for (MOL_SPTR_VECT::const_iterator iter = other.beginAgentTemplates();
+           iter != other.endAgentTemplates(); ++iter) {
+      ROMol *agent = new ROMol(**iter);
+      m_agentTemplates.push_back(ROMOL_SPTR(agent));
+    }
   }
   //! construct a reaction from a pickle string
   ChemicalReaction(const std::string &binStr);
@@ -136,7 +148,7 @@ class ChemicalReaction {
   unsigned int addReactantTemplate(ROMOL_SPTR mol) {
     this->df_needsInit = true;
     this->m_reactantTemplates.push_back(mol);
-    return this->m_reactantTemplates.size();
+    return rdcast<unsigned int>(this->m_reactantTemplates.size());
   }
 
   //! Adds a new agent template
@@ -146,7 +158,7 @@ class ChemicalReaction {
   */
   unsigned int addAgentTemplate(ROMOL_SPTR mol) {
     this->m_agentTemplates.push_back(mol);
-    return this->m_agentTemplates.size();
+    return rdcast<unsigned int>(this->m_agentTemplates.size());
   }
 
   //! Adds a new product template
@@ -156,7 +168,7 @@ class ChemicalReaction {
   */
   unsigned int addProductTemplate(ROMOL_SPTR mol) {
     this->m_productTemplates.push_back(mol);
-    return this->m_productTemplates.size();
+    return rdcast<unsigned int>(this->m_productTemplates.size());
   }
 
   //! Removes the reactant templates from a reaction if atom mapping ratio is
@@ -259,13 +271,13 @@ class ChemicalReaction {
     return this->m_agentTemplates.end();
   }
   unsigned int getNumReactantTemplates() const {
-    return this->m_reactantTemplates.size();
+    return rdcast<unsigned int>(this->m_reactantTemplates.size());
   };
   unsigned int getNumProductTemplates() const {
-    return this->m_productTemplates.size();
+    return rdcast<unsigned int>(this->m_productTemplates.size());
   };
   unsigned int getNumAgentTemplates() const {
-    return this->m_agentTemplates.size();
+    return rdcast<unsigned int>(this->m_agentTemplates.size());
   };
 
   //! initializes our internal reactant-matching datastructures.

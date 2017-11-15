@@ -43,19 +43,28 @@
 #pragma GCC diagnostic ignored "-Wuninitialized"
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wreorder"
+#pragma GCC diagnostic ignored "-Wunused"
+#if defined(__apple_build_version__)
+# if __apple_build_version__ >= 7000072
+# pragma GCC diagnostic ignored "-Wunused-local-typedef"
+# endif
+#endif
 #elif defined(__ICC) || defined(__INTEL_COMPILER)
 /* Intel ICC/ICPC. ------------------------------------------ */
 
-#elif(defined(__GNUC__) || defined(__GNUG__)) && \
+#elif (defined(__GNUC__) || defined(__GNUG__)) && \
     (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 1))
 /* GNU GCC/G++. --------------------------------------------- */
-#if(__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+#if (__GNUC__ > 4 || __GNUC_MINOR__ > 5)
 #pragma GCC diagnostic push
 #endif
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wconversion"
+#if (__GNUC__ > 4 || __GNUC_MINOR__ > 7)
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#endif
 #elif defined(__HP_cc) || defined(__HP_aCC)
 /* Hewlett-Packard C/aC++. ---------------------------------- */
 
@@ -64,7 +73,9 @@
 
 #elif defined(_MSC_VER)
 /* Microsoft Visual Studio. --------------------------------- */
-#pragma warning(push, 0)
+#pragma warning(push)
+#pragma warning(disable:4996 4267)
+
 #elif defined(__PGI)
 /* Portland Group PGCC/PGCPP. ------------------------------- */
 

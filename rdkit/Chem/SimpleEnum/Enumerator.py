@@ -1,19 +1,19 @@
 #
 #  Copyright (c) 2014, Novartis Institutes for BioMedical Research Inc.
 #  All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
-# met: 
+# met:
 #
-#     * Redistributions of source code must retain the above copyright 
+#     * Redistributions of source code must retain the above copyright
 #       notice, this list of conditions and the following disclaimer.
 #     * Redistributions in binary form must reproduce the above
-#       copyright notice, this list of conditions and the following 
-#       disclaimer in the documentation and/or other materials provided 
+#       copyright notice, this list of conditions and the following
+#       disclaimer in the documentation and/or other materials provided
 #       with the distribution.
-#     * Neither the name of Novartis Institutes for BioMedical Research Inc. 
-#       nor the names of its contributors may be used to endorse or promote 
+#     * Neither the name of Novartis Institutes for BioMedical Research Inc.
+#       nor the names of its contributors may be used to endorse or promote
 #       products derived from this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -30,19 +30,21 @@
 #
 # Created by Greg Landrum, May 2009
 from __future__ import print_function
-from rdkit import RDConfig
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem import FunctionalGroups
-from rdkit.Chem import rdChemReactions
-
 
 import os
 
-def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDir,'Functional_Group_Hierarchy.txt'),propName='molFileValue'):
+from rdkit import Chem
+from rdkit import RDConfig
+from rdkit.Chem import AllChem
+from rdkit.Chem import rdChemReactions
+
+
+def PreprocessReaction(reaction, funcGroupFilename=None, propName='molFileValue'):
   """
+  >>> from rdkit.Chem import AllChem
   >>> testFile = os.path.join(RDConfig.RDCodeDir,'Chem','SimpleEnum','test_data','boronic1.rxn')
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> nWarn,nError,nReacts,nProds,reactantLabels = PreprocessReaction(rxn)
   >>> nWarn
   0
@@ -55,14 +57,15 @@ def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDi
   >>> reactantLabels
   (((0, 'halogen.bromine.aromatic'),), ((1, 'boronicacid'),))
 
-  If there are functional group labels in the input reaction (via atoms with molFileValue properties),
-  the corresponding atoms will have queries added to them so that they only match such things. We can
-  see this here:
+  If there are functional group labels in the input reaction (via atoms with molFileValue
+  properties), the corresponding atoms will have queries added to them so that they only
+  match such things. We can see this here:
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> r1 = rxn.GetReactantTemplate(0)
   >>> m1 = Chem.MolFromSmiles('CCBr')
   >>> m2 = Chem.MolFromSmiles('c1ccccc1Br')
-  
+
   These both match because the reaction file itself just has R1-Br:
   >>> m1.HasSubstructMatch(r1)
   True
@@ -79,6 +82,7 @@ def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDi
   We also support or queries in the values field (separated by commas):
   >>> testFile = os.path.join(RDConfig.RDCodeDir,'Chem','SimpleEnum','test_data','azide_reaction.rxn')
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> reactantLabels = PreprocessReaction(rxn)[-1]
   >>> reactantLabels
   (((1, 'azide'),), ((1, 'carboxylicacid,acidchloride'),))
@@ -96,6 +100,7 @@ def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDi
   unrecognized final group types are returned as None:
   >>> testFile = os.path.join(RDConfig.RDCodeDir,'Chem','SimpleEnum','test_data','bad_value1.rxn')
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> nWarn,nError,nReacts,nProds,reactantLabels = PreprocessReaction(rxn)
   Traceback (most recent call last):
     File "/usr/prog/python/2.6.6_gnu/lib/python2.6/doctest.py", line 1253, in __run
@@ -109,6 +114,7 @@ def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDi
   One unrecognized group type in a comma-separated list makes the whole thing fail:
   >>> testFile = os.path.join(RDConfig.RDCodeDir,'Chem','SimpleEnum','test_data','bad_value2.rxn')
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> nWarn,nError,nReacts,nProds,reactantLabels = PreprocessReaction(rxn)
   Traceback (most recent call last):
     File "/usr/prog/python/2.6.6_gnu/lib/python2.6/doctest.py", line 1253, in __run
@@ -120,6 +126,7 @@ def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDi
   RuntimeError: KeyErrorException
   >>> testFile = os.path.join(RDConfig.RDCodeDir,'Chem','SimpleEnum','test_data','bad_value3.rxn')
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> nWarn,nError,nReacts,nProds,reactantLabels = PreprocessReaction(rxn)
   Traceback (most recent call last):
     File "/usr/prog/python/2.6.6_gnu/lib/python2.6/doctest.py", line 1253, in __run
@@ -130,32 +137,32 @@ def PreprocessReaction(reaction,funcGroupFilename=os.path.join(RDConfig.RDDataDi
       reactantLabels = reaction.AddRecursiveQueriesToReaction(queryDict, propName='molFileValue', getLabels=True)
   RuntimeError: KeyErrorException
   >>> rxn = rdChemReactions.ChemicalReaction()
+  >>> rxn.Initialize()
   >>> nWarn,nError,nReacts,nProds,reactantLabels = PreprocessReaction(rxn)
-  >>> reactantLabels == []
+  >>> reactantLabels
+  ()
+  >>> reactantLabels == ()
   True
   """
-  reaction._setImplicitPropertiesFlag(True)
-  reaction.Initialize()
-  nReactants = reaction.GetNumReactantTemplates()
-  nProducts = reaction.GetNumProductTemplates()
-  nWarn,nError = reaction.Validate()
 
-  if not nError:
+  if funcGroupFilename:
     try:
       queryDict = Chem.ParseMolQueryDefFile(funcGroupFilename)
     except Exception:
       raise IOError('cannot open', funcGroupFilename)
-    else:
-      reactantLabels = reaction.AddRecursiveQueriesToReaction(queryDict, propName, getLabels=True)
-  else:
-    reactantLabels = []
 
-  return nWarn,nError,nReactants,nProducts,reactantLabels
+    return rdChemReactions.PreprocessReaction(reaction, queryDict, propName)
+  return rdChemReactions.PreprocessReaction(reaction, propName=propName)
 
-def EnumerateReaction(reaction,bbLists,uniqueProductsOnly=False,funcGroupFilename=os.path.join(RDConfig.RDDataDir,'Functional_Group_Hierarchy.txt'),propName='molFileValue'):
+
+def EnumerateReaction(
+    reaction, bbLists, uniqueProductsOnly=False,
+    funcGroupFilename=os.path.join(RDConfig.RDDataDir, 'Functional_Group_Hierarchy.txt'),
+    propName='molFileValue'):
   """
   >>> testFile = os.path.join(RDConfig.RDCodeDir,'Chem','SimpleEnum','test_data','boronic1.rxn')
   >>> rxn = AllChem.ReactionFromRxnFile(testFile)
+  >>> rxn.Initialize()
   >>> reacts1=['Brc1ccccc1','Brc1ncccc1','Brc1cnccc1']
   >>> reacts1=[Chem.MolFromSmiles(x) for x in reacts1]
   >>> reacts2=['CCB(O)O','CCCB(O)O']
@@ -174,7 +181,7 @@ def EnumerateReaction(reaction,bbLists,uniqueProductsOnly=False,funcGroupFilenam
   6
   >>> print(smis)
   ['CCCc1ccccc1', 'CCCc1ccccn1', 'CCCc1cccnc1', 'CCc1ccccc1', 'CCc1ccccn1', 'CCc1cccnc1']
-  
+
   The nastiness can be avoided at the cost of some memory by asking for only unique products:
   >>> prods = EnumerateReaction(rxn,(reacts1,reacts2),uniqueProductsOnly=True)
   >>> prods = list(prods)
@@ -183,40 +190,40 @@ def EnumerateReaction(reaction,bbLists,uniqueProductsOnly=False,funcGroupFilenam
   >>> print(sorted([Chem.MolToSmiles(x[0]) for x in prods]))
   ['CCCc1ccccc1', 'CCCc1ccccn1', 'CCCc1cccnc1', 'CCc1ccccc1', 'CCc1ccccn1', 'CCc1cccnc1']
 
-  
+
   """
-  nWarn,nError,nReacts,nProds,reactantLabels = PreprocessReaction(reaction)
-  if nError: raise ValueError('bad reaction')
-  if len(bbLists) != nReacts: raise ValueError('%d reactants in reaction, %d bb lists supplied'%(nReacts,len(bbLists)))
+  nWarn, nError, nReacts, nProds, reactantLabels = PreprocessReaction(reaction)
+  if nError:
+    raise ValueError('bad reaction')
+  if len(bbLists) != nReacts:
+    raise ValueError('%d reactants in reaction, %d bb lists supplied' % (nReacts, len(bbLists)))
+
   def _uniqueOnly(lst):
-    seen=[]
+    seen = []
     for entry in lst:
       if entry:
-        smi = '.'.join(sorted([Chem.MolToSmiles(x,True) for x in entry]))
+        smi = '.'.join(sorted([Chem.MolToSmiles(x, True) for x in entry]))
         if smi not in seen:
           seen.append(smi)
           yield entry
-  
-  ps = AllChem.EnumerateLibraryFromReaction(reaction,bbLists)
+
+  ps = AllChem.EnumerateLibraryFromReaction(reaction, bbLists)
   if not uniqueProductsOnly:
     return ps
   else:
     return _uniqueOnly(ps)
 
 
-
-
-#------------------------------------
+# ------------------------------------
 #
 #  doctest boilerplate
 #
-def _test():
-  import doctest,sys
-  return doctest.testmod(sys.modules["__main__"])
-
-
-if __name__ == '__main__':
+def _runDoctests(verbose=None):  # pragma: nocover
   import sys
-  failed,tried = _test()
+  import doctest
+  failed, _ = doctest.testmod(optionflags=doctest.ELLIPSIS, verbose=verbose)
   sys.exit(failed)
 
+
+if __name__ == '__main__':  # pragma: nocover
+  _runDoctests()

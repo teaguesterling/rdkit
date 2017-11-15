@@ -24,19 +24,21 @@ bool atomCompat(const ATOM_SPTR &a1, const ATOM_SPTR &a2,
   // " " << a2->getIdx() << std::endl;
   bool res;
   if (useQueryQueryMatches && a1->hasQuery() && a2->hasQuery()) {
-    res = static_cast<QueryAtom *>(a1.get())
-              ->QueryMatch(static_cast<QueryAtom *>(a2.get()));
+    res = static_cast<QueryAtom *>(a1.get())->QueryMatch(
+        static_cast<QueryAtom *>(a2.get()));
   } else {
     res = a1->Match(a2);
   }
+  return res;
+  std::cerr << "\t\tatomCompat: " << a1 << " " << a1->getIdx() << "-" << a2
+            << " " << a2->getIdx() << std::endl;
+  std::cerr << "\t\t    " << res << std::endl;
   return res;
 }
 
 bool chiralAtomCompat(const ATOM_SPTR &a1, const ATOM_SPTR &a2) {
   PRECONDITION(a1, "bad atom");
   PRECONDITION(a2, "bad atom");
-  // std::cerr << "\t\tatomCompat: "<< a1 << " " << a1->getIdx() << "-" << a2 <<
-  // " " << a2->getIdx() << std::endl;
   bool res = a1->Match(a2);
   if (res) {
     std::string s1, s2;
@@ -46,6 +48,9 @@ bool chiralAtomCompat(const ATOM_SPTR &a1, const ATOM_SPTR &a2) {
       res = hascode1 && hascode2 && s1 == s2;
     }
   }
+  std::cerr << "\t\tchiralAtomCompat: " << a1 << " " << a1->getIdx() << "-"
+            << a2 << " " << a2->getIdx() << std::endl;
+  std::cerr << "\t\t    " << res << std::endl;
   return res;
 }
 
@@ -55,10 +60,18 @@ bool bondCompat(const BOND_SPTR &b1, const BOND_SPTR &b2,
   PRECONDITION(b2, "bad bond");
   bool res;
   if (useQueryQueryMatches && b1->hasQuery() && b2->hasQuery()) {
-    res = static_cast<QueryBond *>(b1.get())
-              ->QueryMatch(static_cast<QueryBond *>(b2.get()));
+    res = static_cast<QueryBond *>(b1.get())->QueryMatch(
+        static_cast<QueryBond *>(b2.get()));
   } else {
     res = b1->Match(b2);
+  }
+  if (res && b1->getBondType() == Bond::DATIVE &&
+      b2->getBondType() == Bond::DATIVE) {
+    // for dative bonds we need to make sure that the direction also matches:
+    if (!b1->getBeginAtom()->Match(b1->getBeginAtom()) ||
+        !b1->getEndAtom()->Match(b2->getEndAtom())) {
+      res = false;
+    }
   }
   // std::cout << "\t\tbondCompat: "<< b1->getIdx() << "-" << b2->getIdx() << ":
   // " << res << std::endl;

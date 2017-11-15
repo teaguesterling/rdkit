@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2003-2013 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2003-2017 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -279,27 +278,45 @@ void setHydrogenCoords(ROMol *mol, unsigned int hydIdx, unsigned int heavyIdx) {
         // direction...
         // correct for this (issue 2951221):
         if (fabs(nbr3Vect.dotProduct(nbr1Vect.crossProduct(nbr2Vect))) < 0.1) {
-          // compute the normal:
-          dirVect = nbr1Vect.crossProduct(nbr2Vect);
-          std::string cipCode;
-          if (heavyAtom->getPropIfPresent(common_properties::_CIPCode,
-                                          cipCode)) {
-            // the heavy atom is a chiral center, make sure
-            // that we went go the right direction to preserve
-            // its chirality. We use the chiral volume for this:
-            RDGeom::Point3D v1 = dirVect - nbr3Vect;
-            RDGeom::Point3D v2 = nbr1Vect - nbr3Vect;
-            RDGeom::Point3D v3 = nbr2Vect - nbr3Vect;
-            double vol = v1.dotProduct(v2.crossProduct(v3));
-            // FIX: this is almost certainly wrong and should use the chiral tag
-            if ((cipCode == "S" && vol < 0) || (cipCode == "R" && vol > 0)) {
-              dirVect *= -1;
+          if ((*cfi)->is3D()) {
+            // compute the normal:
+            dirVect = nbr1Vect.crossProduct(nbr2Vect);
+            std::string cipCode;
+            if (heavyAtom->getPropIfPresent(common_properties::_CIPCode,
+                                            cipCode)) {
+              // the heavy atom is a chiral center, make sure
+              // that we went go the right direction to preserve
+              // its chirality. We use the chiral volume for this:
+              RDGeom::Point3D v1 = dirVect - nbr3Vect;
+              RDGeom::Point3D v2 = nbr1Vect - nbr3Vect;
+              RDGeom::Point3D v3 = nbr2Vect - nbr3Vect;
+              double vol = v1.dotProduct(v2.crossProduct(v3));
+              // FIX: this is almost certainly wrong and should use the chiral
+              // tag
+              if ((cipCode == "S" && vol < 0) || (cipCode == "R" && vol > 0)) {
+                dirVect *= -1;
+              }
             }
+          } else {
+            // this was github #908
+            // We're in a 2D conformation, put the H between the two neighbors
+            // that have the widest angle between them:
+            double minDot = nbr1Vect.dotProduct(nbr2Vect);
+            dirVect = nbr1Vect + nbr2Vect;
+            if (nbr2Vect.dotProduct(nbr3Vect) < minDot) {
+              minDot = nbr2Vect.dotProduct(nbr3Vect);
+              dirVect = nbr2Vect + nbr3Vect;
+            }
+            if (nbr1Vect.dotProduct(nbr3Vect) < minDot) {
+              minDot = nbr1Vect.dotProduct(nbr3Vect);
+              dirVect = nbr1Vect + nbr3Vect;
+            }
+            dirVect *= -1;
           }
         } else {
           dirVect = nbr1Vect + nbr2Vect + nbr3Vect;
-          dirVect.normalize();
         }
+        dirVect.normalize();
         hydPos = heavyPos + dirVect * bondLength;
         (*cfi)->setAtomPos(hydIdx, hydPos);
       }
@@ -429,9 +446,17 @@ void removeHs(RWMol &mol, bool implicitOnly, bool updateExplicitCount,
     ++origIdx;
     if (atom->getAtomicNum() == 1) {
       bool removeIt = false;
-
       if (atom->hasProp(common_properties::isImplicit)) {
         removeIt = true;
+        if (atom->getDegree() == 1) {
+          // by default we remove implicit Hs, but not if they are
+          // attached to dummy atoms. This was Github #1439
+          ROMol::ADJ_ITER begin, end;
+          boost::tie(begin, end) = mol.getAtomNeighbors(atom);
+          if (mol.getAtomWithIdx(*begin)->getAtomicNum() < 1) {
+            removeIt = false;
+          }
+        }
       } else if (!implicitOnly && !atom->getIsotope() &&
                  atom->getDegree() == 1) {
         ROMol::ADJ_ITER begin, end;
@@ -622,15 +647,12 @@ bool isQueryH(const Atom *atom) {
     while (!(hasHQuery && hasOr) && childStack.size()) {
       QueryAtom::QUERYATOM_QUERY::CHILD_TYPE query = childStack.front();
       childStack.pop_front();
-      // std::cerr<<" "<<query->getDescription()<<std::endl;
-      if (query->getDescription() == "AtomHCount") {
-        hasHQuery = true;
-      } else if (query->getDescription() == "AtomOr") {
+      if (query->getDescription() == "AtomOr") {
         hasOr = true;
       } else if (query->getDescription() == "AtomAtomicNum") {
-        if (static_cast<ATOM_EQUALS_QUERY *>(query.get())->getVal() != 1) {
-          return false;  // we are safe here because we don't do anything with
-                         // OR queries
+        if (static_cast<ATOM_EQUALS_QUERY *>(query.get())->getVal() == 1 &&
+            !query->getNegation()) {
+          hasHQuery = true;
         }
       } else {
         QueryAtom::QUERYATOM_QUERY::CHILD_VECT_CI child1;

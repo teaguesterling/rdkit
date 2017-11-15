@@ -14,6 +14,7 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <Geometry/point.h>
+#include <GraphMol/Trajectory/Snapshot.h>
 
 namespace ForceFields {
 class ForceFieldContrib;
@@ -68,7 +69,7 @@ class ForceField {
   void initialize();
 
   //! calculates and returns the energy (in kcal/mol) based on existing
-  //positions in the forcefield
+  // positions in the forcefield
   /*!
 
   \return the current energy
@@ -78,7 +79,7 @@ class ForceField {
   double *
       the positions need to be converted to double * here
   */
-  double calcEnergy() const;
+  double calcEnergy(std::vector<double> *contribs = NULL) const;
 
   // these next two aren't const because they may update our
   // distance matrix
@@ -122,6 +123,27 @@ class ForceField {
     \param maxIts    the maximum number of iterations to try
     \param forceTol  the convergence criterion for forces
     \param energyTol the convergence criterion for energies
+
+    \return an integer value indicating whether or not the convergence
+            criteria were achieved:
+      - 0: indicates success
+      - 1: the minimization did not converge in \c maxIts iterations.
+  */
+  int minimize(unsigned int snapshotFreq, RDKit::SnapshotVect *snapshotVect,
+               unsigned int maxIts = 200, double forceTol = 1e-4,
+               double energyTol = 1e-6);
+
+  //! minimizes the energy of the system by following gradients
+  /*!
+    \param maxIts            the maximum number of iterations to try
+    \param forceTol          the convergence criterion for forces
+    \param energyTol         the convergence criterion for energies
+    \param snapshotFreq      a snapshot of the minimization trajectory
+                             will be stored after as many steps as indicated
+                             through this parameter; defaults to 0 (no
+                             trajectory stored)
+    \param snapshotVect      a pointer to a std::vector<Snapshot> where
+                             coordinates and energies will be stored
 
     \return an integer value indicating whether or not the convergence
             criteria were achieved:

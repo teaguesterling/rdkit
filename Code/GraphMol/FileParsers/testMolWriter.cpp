@@ -1395,11 +1395,11 @@ void testGithub611() {
     RWMol *m = MolFileToMol(fName);
     TEST_ASSERT(m);
     std::string mb = MolToMolBlock(*m);
-    TEST_ASSERT(mb.find("3  2  1  6") != std::string::npos);
+    TEST_ASSERT(mb.find("3  5  1  1") != std::string::npos);
 
     m->getBondWithIdx(2)->setBondDir(Bond::BEGINWEDGE);
     mb = MolToMolBlock(*m);
-    TEST_ASSERT(mb.find("3  2  1  6") == std::string::npos);
+    TEST_ASSERT(mb.find("3  5  1  1") == std::string::npos);
     TEST_ASSERT(mb.find("3  4  1  1") != std::string::npos);
   }
 }
@@ -1432,6 +1432,51 @@ void testGetSDText() {
       delete mol;
       delete mol2;
     }
+  }
+}
+
+void testMolFileWriterDativeBonds() {
+  BOOST_LOG(rdInfoLog) << "testing molfile writer dative bond support"
+                       << std::endl;
+  std::string rdbase = getenv("RDBASE");
+  rdbase += "/Code/GraphMol/FileParsers/test_data/";
+  {
+    std::string fName = rdbase + "dative_bonds_two.mol";
+    RWMol *m = MolFileToMol(fName);
+    TEST_ASSERT(m);
+    TEST_ASSERT(m->getBondWithIdx(8)->getBondType() == Bond::DATIVE);
+    TEST_ASSERT(m->getBondWithIdx(9)->getBondType() == Bond::DATIVE);
+
+    std::string mb = MolToMolBlock(*m);
+    // Bonds #9 and #10 (index 8 and 9) will have a bond type of 9
+    // in the molfile.  Bond # --+ +-- Bond type.
+    //                           | |
+    TEST_ASSERT(mb.find("M  V30 9 9 5 11") != std::string::npos);
+    TEST_ASSERT(mb.find("M  V30 10 9 10 11") != std::string::npos);
+
+    // Roundtrip - can we read produced mol block above ?
+    RWMol *m2 = MolBlockToMol(mb);
+    TEST_ASSERT(m2);
+    TEST_ASSERT(m->getBondWithIdx(8)->getBondType() == Bond::DATIVE);
+    TEST_ASSERT(m->getBondWithIdx(9)->getBondType() == Bond::DATIVE);
+  }
+
+  // Small molecules without dative bonds are output in V2000 format.
+  {
+    RWMol *m = SmilesToMol("CCC(=O)O[Cu]");
+    TEST_ASSERT(m);
+    std::string mb = MolToMolBlock(*m);
+    TEST_ASSERT(mb.find("0999 V2000") != std::string::npos);
+    TEST_ASSERT(mb.find("0999 V3000") == std::string::npos);
+  }
+  // ... but molecules with dative bonds will always be
+  // output in V3000 format.
+  {
+    RWMol *m = SmilesToMol("CCC(=O)O->[Cu]");
+    TEST_ASSERT(m);
+    std::string mb = MolToMolBlock(*m);
+    TEST_ASSERT(mb.find("0999 V2000") == std::string::npos);
+    TEST_ASSERT(mb.find("0999 V3000") != std::string::npos);
   }
 }
 
@@ -1576,5 +1621,9 @@ int main() {
 
   BOOST_LOG(rdInfoLog) << "-----------------------------------------\n";
   testGetSDText();
+  BOOST_LOG(rdInfoLog) << "-----------------------------------------\n\n";
+
+  BOOST_LOG(rdInfoLog) << "-----------------------------------------\n";
+  testMolFileWriterDativeBonds();
   BOOST_LOG(rdInfoLog) << "-----------------------------------------\n\n";
 }

@@ -13,6 +13,20 @@ else(RDKit_Revision)
   set(RDKit_VERSION "${RDKit_VERSION}.0")
 endif(RDKit_Revision)
 
+set(compilerID "${CMAKE_CXX_COMPILER_ID}")
+set(systemAttribute "")
+if(MINGW)
+  set(systemAttribute "MINGW")
+endif(MINGW)
+if(UNIX)
+  set(systemAttribute "UNIX")
+endif(UNIX)
+if(CMAKE_SIZEOF_VOID_P MATCHES 4)
+  set(bit3264 "32-bit")
+else()
+  set(bit3264 "64-bit")
+endif()
+set(RDKit_BUILDNAME "${CMAKE_SYSTEM_NAME}|${CMAKE_SYSTEM_VERSION}|${systemAttribute}|${compilerID}|${bit3264}")
 set(RDKit_EXPORTED_TARGETS rdkit-targets)
 
 macro(rdkit_library)
@@ -42,27 +56,30 @@ macro(rdkit_library)
         INSTALL(TARGETS ${RDKLIB_NAME}_static EXPORT ${RDKit_EXPORTED_TARGETS}
                 DESTINATION ${RDKit_LibDir}/${RDKLIB_DEST}
                 COMPONENT dev )
+        set_target_properties(${RDKLIB_NAME}_static PROPERTIES
+                              OUTPUT_NAME "RDKit${RDKLIB_NAME}_static")
+
       endif(RDK_INSTALL_STATIC_LIBS)
     IF(RDKLIB_LINK_LIBRARIES)
       target_link_libraries(${RDKLIB_NAME} ${RDKLIB_LINK_LIBRARIES})
     ENDIF(RDKLIB_LINK_LIBRARIES)
   endif(MSVC)
   if(WIN32)
-    set_target_properties(${RDKLIB_NAME} PROPERTIES 
-                          OUTPUT_NAME "${RDKLIB_NAME}" 
+    set_target_properties(${RDKLIB_NAME} PROPERTIES
+                          OUTPUT_NAME "RDKit${RDKLIB_NAME}"
                           VERSION "${RDKit_ABI}.${RDKit_Year}.${RDKit_Month}")
   else(WIN32)
-    set_target_properties(${RDKLIB_NAME} PROPERTIES 
-                          OUTPUT_NAME ${RDKLIB_NAME} 
-                          VERSION ${RDKit_VERSION} 
+    set_target_properties(${RDKLIB_NAME} PROPERTIES
+                          OUTPUT_NAME "RDKit${RDKLIB_NAME}"
+                          VERSION ${RDKit_VERSION}
                           SOVERSION ${RDKit_ABI} )
-  endif(WIN32)			  
-  set_target_properties(${RDKLIB_NAME} PROPERTIES 
+  endif(WIN32)
+  set_target_properties(${RDKLIB_NAME} PROPERTIES
                         ARCHIVE_OUTPUT_DIRECTORY ${RDK_ARCHIVE_OUTPUT_DIRECTORY}
                         RUNTIME_OUTPUT_DIRECTORY ${RDK_RUNTIME_OUTPUT_DIRECTORY}
                         LIBRARY_OUTPUT_DIRECTORY ${RDK_LIBRARY_OUTPUT_DIRECTORY})
 endmacro(rdkit_library)
-  
+
 macro(rdkit_headers)
   if (NOT RDK_INSTALL_INTREE)
     PARSE_ARGUMENTS(RDKHDR
@@ -91,15 +108,15 @@ if(WIN32)
                           LIBRARY_OUTPUT_DIRECTORY
                           ${RDK_PYTHON_OUTPUT_DIRECTORY}/${RDKPY_DEST})
 else(WIN32)
-    set_target_properties(${RDKPY_NAME} PROPERTIES 
+    set_target_properties(${RDKPY_NAME} PROPERTIES
                           LIBRARY_OUTPUT_DIRECTORY
                           ${RDK_PYTHON_OUTPUT_DIRECTORY}/${RDKPY_DEST})
-endif(WIN32)  
-    target_link_libraries(${RDKPY_NAME} ${RDKPY_LINK_LIBRARIES} 
+endif(WIN32)
+    target_link_libraries(${RDKPY_NAME} ${RDKPY_LINK_LIBRARIES}
                           ${PYTHON_LIBRARIES} ${Boost_LIBRARIES} )
 
-    INSTALL(TARGETS ${RDKPY_NAME} 
-            LIBRARY DESTINATION ${RDKit_PythonDir}/${RDKPY_DEST})
+    INSTALL(TARGETS ${RDKPY_NAME}
+            LIBRARY DESTINATION ${RDKit_PythonDir}/${RDKPY_DEST} COMPONENT python)
   endif(RDK_BUILD_PYTHON_WRAPPERS)
 endmacro(rdkit_python_extension)
 

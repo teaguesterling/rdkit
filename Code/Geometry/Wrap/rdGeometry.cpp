@@ -17,7 +17,7 @@ void wrap_uniformGrid();
 
 BOOST_PYTHON_MODULE(rdGeometry) {
   python::scope().attr("__doc__") =
-      "Module containing geometry objects like points, grids etc\n";
+      "Module containing geometry objects like points, grids, etc\n";
 
   wrap_point();
   wrap_uniformGrid();

@@ -16,6 +16,7 @@
 #include <GraphMol/Descriptors/Lipinski.h>
 #include <GraphMol/Descriptors/ConnectivityDescriptors.h>
 #include <GraphMol/Descriptors/MQN.h>
+#include <GraphMol/Descriptors/AUTOCORR2D.h>
 
 namespace RDKit {
 class ROMol;
@@ -29,6 +30,7 @@ namespace Descriptors {
 
   \return the AMW
 */
+extern const std::string amwVersion;
 double calcAMW(const ROMol &mol, bool onlyHeavy = false);
 /*!
   Calculates a molecule's exact molecular weight
@@ -39,6 +41,7 @@ double calcAMW(const ROMol &mol, bool onlyHeavy = false);
 
   \return the exact MW
 */
+extern const std::string exactmwVersion;
 double calcExactMW(const ROMol &mol, bool onlyHeavy = false);
 /*!
   Calculates a molecule's formula

@@ -17,12 +17,16 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "BoostStartInclude.h"
 #include <RDGeneral/RDLog.h>
+#include "BoostEndInclude.h"
 
 #ifdef RDDEBUG
 // Enable RDDEBUG for testing whether rdcast
 //  conversions are within numerical limits
+#include <RDGeneral/BoostStartInclude.h>
 #include <boost/numeric/conversion/cast.hpp>
+#include <RDGeneral/BoostEndInclude.h>
 #endif
 //
 // What if no invariant method is defined?
@@ -134,9 +138,9 @@ std::ostream& operator<<(std::ostream& s, const Invariant& inv);
   }
 
 #define URANGE_CHECK(x, hi)                                                 \
-  if ((x) > (hi)) {                                                         \
+  if (x >= (hi)) {                                                          \
     std::stringstream errstr;                                               \
-    errstr << x << " <= " << hi;                                            \
+    errstr << x << " < " << hi;                                            \
     Invar::Invariant inv("Range Error", #x, errstr.str().c_str(), __FILE__, \
                          __LINE__);                                         \
     BOOST_LOG(rdErrorLog) << "\n\n****\n" << inv << "****\n\n";             \
@@ -159,7 +163,7 @@ std::ostream& operator<<(std::ostream& s, const Invariant& inv);
 #define UNDER_CONSTRUCTION(fn) assert(0);
 #define RANGE_CHECK(lo, x, hi) \
   assert((lo) <= (hi) && (x) >= (lo) && (x) <= (hi));
-#define URANGE_CHECK(lo, x, hi) assert((x) <= (hi));
+#define URANGE_CHECK(lo, x, hi) assert((hi>0) && (x < hi));
 #define TEST_ASSERT(expr) assert(expr);
 
 #elif INVARIANT_SILENT_METHOD

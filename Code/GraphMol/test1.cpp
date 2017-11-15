@@ -16,10 +16,12 @@
 #include <RDGeneral/RDLog.h>
 //#include <boost/log/functions.hpp>
 #include <GraphMol/FileParsers/FileParsers.h>
+#include <GraphMol/FileParsers/MolWriters.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
-
+#include <sstream>
 #include <iostream>
+
 using namespace std;
 using namespace RDKit;
 
@@ -159,7 +161,7 @@ void testMolProps() {
   m2.setProp("cprop1", 1, true);
   m2.setProp("cprop2", 2, true);
   STR_VECT cplst;
-  m2.getProp(detail::computedPropName, cplst);
+  m2.getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 2, "");
   CHECK_INVARIANT(cplst[0] == "cprop1", "");
   CHECK_INVARIANT(cplst[1] == "cprop2", "");
@@ -177,12 +179,12 @@ void testMolProps() {
 
   m2.clearProp("cprop1");
   CHECK_INVARIANT(!m2.hasProp("cprop1"), "");
-  m2.getProp(detail::computedPropName, cplst);
+  m2.getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 1, "");
 
   m2.clearComputedProps();
   CHECK_INVARIANT(!m2.hasProp("cprop2"), "");
-  m2.getProp(detail::computedPropName, cplst);
+  m2.getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 0, "");
 
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
@@ -204,7 +206,7 @@ void testClearMol() {
   m2.getProp("prop1", tmpI);
   TEST_ASSERT(tmpI == 2);
 
-  TEST_ASSERT(m2.hasProp(detail::computedPropName));
+  TEST_ASSERT(m2.hasProp(RDKit::detail::computedPropName));
 
   m2.clear();
   TEST_ASSERT(!m2.hasProp("prop1"));
@@ -213,7 +215,8 @@ void testClearMol() {
   TEST_ASSERT(m2.getAtomBookmarks()->empty());
   TEST_ASSERT(m2.getBondBookmarks()->empty());
 
-  TEST_ASSERT(m2.hasProp(detail::computedPropName));  // <- github issue 176
+  TEST_ASSERT(
+      m2.hasProp(RDKit::detail::computedPropName));  // <- github issue 176
   TEST_ASSERT(m2.getPropList().size() == 1);
 
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
@@ -285,19 +288,19 @@ void testAtomProps() {
   a1->setProp("cprop1", 1, true);
   a1->setProp("cprop2", 2, true);
   STR_VECT cplst;
-  a1->getProp(detail::computedPropName, cplst);
+  a1->getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 2, "");
   CHECK_INVARIANT(cplst[0] == "cprop1", "");
   CHECK_INVARIANT(cplst[1] == "cprop2", "");
 
   a1->clearProp("cprop1");
   CHECK_INVARIANT(!a1->hasProp("cprop1"), "");
-  a1->getProp(detail::computedPropName, cplst);
+  a1->getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 1, "");
 
   a1->clearComputedProps();
   CHECK_INVARIANT(!a1->hasProp("cprop2"), "");
-  a1->getProp(detail::computedPropName, cplst);
+  a1->getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 0, "");
 
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
@@ -340,19 +343,19 @@ void testBondProps() {
   b1->setProp("cprop1", 1, true);
   b1->setProp("cprop2", 2, true);
   STR_VECT cplst;
-  b1->getProp(detail::computedPropName, cplst);
+  b1->getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 2, "");
   CHECK_INVARIANT(cplst[0] == "cprop1", "");
   CHECK_INVARIANT(cplst[1] == "cprop2", "");
 
   b1->clearProp("cprop1");
   CHECK_INVARIANT(!b1->hasProp("cprop1"), "");
-  b1->getProp(detail::computedPropName, cplst);
+  b1->getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 1, "");
 
   b1->clearComputedProps();
   CHECK_INVARIANT(!b1->hasProp("cprop2"), "");
-  b1->getProp(detail::computedPropName, cplst);
+  b1->getProp(RDKit::detail::computedPropName, cplst);
   CHECK_INVARIANT(cplst.size() == 0, "");
 
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
@@ -863,6 +866,16 @@ void test1() {
     BOOST_LOG(rdInfoLog) << " trying a replace " << endl;
     Atom *repA = new Atom(22);
     m.replaceAtom(newIdx, repA);
+    delete repA;
+    TEST_ASSERT(m.getAtomWithIdx(newIdx)->getAtomicNum() == 22);
+    Bond *nbnd = new Bond(Bond::DOUBLE);
+    TEST_ASSERT(m.getBondWithIdx(m.getNumBonds() - 1)->getBondType() ==
+                Bond::AROMATIC);
+    m.replaceBond(m.getNumBonds() - 1, nbnd);
+    m.debugMol(std::cerr);
+    TEST_ASSERT(m.getBondWithIdx(m.getNumBonds() - 1)->getBondType() ==
+                nbnd->getBondType());
+    delete nbnd;
   }
   {
     RWMol m;
@@ -959,7 +972,8 @@ void testPeriodicTable() {
 void testAddAtomWithConf() {
   BOOST_LOG(rdInfoLog) << "-----------------------\n";
   BOOST_LOG(rdInfoLog) << "Testing issue 264: adding atoms to molecules that "
-                          "already have conformers" << std::endl;
+                          "already have conformers"
+                       << std::endl;
   {
     RWMol m;
 
@@ -1063,17 +1077,17 @@ void testAtomResidues() {
     TEST_ASSERT(!(m->getAtomWithIdx(2)->getMonomerInfo()));
     TEST_ASSERT(!(m->getAtomWithIdx(3)->getMonomerInfo()));
 
-    m->getAtomWithIdx(0)
-        ->setMonomerInfo(new AtomMonomerInfo(AtomMonomerInfo::OTHER, "m1"));
+    m->getAtomWithIdx(0)->setMonomerInfo(
+        new AtomMonomerInfo(AtomMonomerInfo::OTHER, "m1"));
     TEST_ASSERT((m->getAtomWithIdx(0)->getMonomerInfo()));
     TEST_ASSERT(m->getAtomWithIdx(0)->getMonomerInfo()->getName() == "m1");
 
     m->getAtomWithIdx(1)->setMonomerInfo(new AtomPDBResidueInfo("Ca", 3));
     TEST_ASSERT((m->getAtomWithIdx(1)->getMonomerInfo()));
     TEST_ASSERT(m->getAtomWithIdx(1)->getMonomerInfo()->getName() == "Ca");
-    TEST_ASSERT(
-        static_cast<const AtomPDBResidueInfo *>(
-            m->getAtomWithIdx(1)->getMonomerInfo())->getSerialNumber() == 3);
+    TEST_ASSERT(static_cast<const AtomPDBResidueInfo *>(
+                    m->getAtomWithIdx(1)->getMonomerInfo())
+                    ->getSerialNumber() == 3);
 
     RWMol *m2 = new RWMol(*m);
     delete m;
@@ -1082,9 +1096,9 @@ void testAtomResidues() {
     TEST_ASSERT(m2->getAtomWithIdx(0)->getMonomerInfo()->getName() == "m1");
     TEST_ASSERT((m2->getAtomWithIdx(1)->getMonomerInfo()));
     TEST_ASSERT(m2->getAtomWithIdx(1)->getMonomerInfo()->getName() == "Ca");
-    TEST_ASSERT(
-        static_cast<const AtomPDBResidueInfo *>(
-            m2->getAtomWithIdx(1)->getMonomerInfo())->getSerialNumber() == 3);
+    TEST_ASSERT(static_cast<const AtomPDBResidueInfo *>(
+                    m2->getAtomWithIdx(1)->getMonomerInfo())
+                    ->getSerialNumber() == 3);
     TEST_ASSERT(!(m2->getAtomWithIdx(2)->getMonomerInfo()));
     TEST_ASSERT(!(m2->getAtomWithIdx(3)->getMonomerInfo()));
   }
@@ -1255,6 +1269,95 @@ void testGithub608() {
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
 
+#ifdef RDK_TEST_MULTITHREADED
+#include <RDGeneral/BoostStartInclude.h>
+#include <boost/thread.hpp>
+#include <boost/dynamic_bitset.hpp>
+#include <RDGeneral/BoostEndInclude.h>
+namespace {
+void runblock(std::vector<const PeriodicTable *> *pts, int idx) {
+  const PeriodicTable *pt = PeriodicTable::getTable();
+  (*pts)[idx] = pt;
+  TEST_ASSERT(pt->getAtomicNumber("C") == 6);
+  TEST_ASSERT(pt->getAtomicNumber("N") == 7);
+  TEST_ASSERT(pt->getAtomicNumber("O") == 8);
+};
+}
+void testGithub381() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog)
+      << "    Test github381: thread-safe initialization of the periodic table"
+      << std::endl;
+
+  boost::thread_group tg;
+  unsigned int count = 32;
+  std::vector<const PeriodicTable *> pts(count);
+#if 1
+  for (unsigned int i = 0; i < count; ++i) {
+    std::cerr.flush();
+    tg.add_thread(new boost::thread(runblock, &pts, i));
+  }
+  tg.join_all();
+  TEST_ASSERT(pts[0] != NULL);
+  for (unsigned int i = 1; i < count; ++i) {
+    TEST_ASSERT(pts[i] == pts[0]);
+  }
+#endif
+
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+#else
+void testGithub381() {}
+#endif
+
+void testGithub1041() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog) << "    Test github1041: Segfault for atom with no "
+                           "owner (expect some warnings)"
+                        << std::endl;
+  {
+    Atom at(6);
+    bool ok = false;
+    try {
+      at.getOwningMol();
+    } catch (const Invar::Invariant &err) {
+      ok = true;
+    }
+    TEST_ASSERT(ok);
+  }
+  {
+    Bond b;
+    bool ok = false;
+    try {
+      b.getOwningMol();
+    } catch (const Invar::Invariant &err) {
+      ok = true;
+    }
+    TEST_ASSERT(ok);
+  }
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+
+void testGithub1453() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog)
+      << "    Test github1453: RWMol.clear() should reset the numBonds count."
+      << std::endl;
+
+  RWMol m2;
+
+  m2.addAtom(new Atom(6));
+  m2.addAtom(new Atom(6));
+  m2.addBond(0, 1, Bond::TRIPLE);
+  TEST_ASSERT(m2.getNumAtoms() == 2);
+  TEST_ASSERT(m2.getNumBonds() == 1);
+  m2.clear();
+  TEST_ASSERT(m2.getNumAtoms() == 0);
+  TEST_ASSERT(m2.getNumBonds() == 0);
+
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+
 // -------------------------------------------------------------------
 int main() {
   RDLog::InitLogs();
@@ -1280,6 +1383,10 @@ int main() {
   testNeedsUpdatePropertyCache();
   testAtomListLineRoundTrip();
   testGithub608();
+  testGithub381();
+  testGithub1041();
+  testGithub1041();
+  testGithub1453();
 
   return 0;
 }

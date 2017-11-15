@@ -29,7 +29,7 @@ namespace RDKit {
  */
 class RWMol : public ROMol {
  public:
-  RWMol() { d_partialBonds.clear(); }
+  RWMol() : ROMol() { d_partialBonds.clear(); }
 
   //! copy constructor with a twist
   /*!
@@ -41,9 +41,9 @@ class RWMol : public ROMol {
     \param confId if this is >=0, the resulting ROMol will contain only
          the specified conformer from \c other.
   */
-  RWMol(const ROMol &other, bool quickCopy = false, int confId = -1) {
+  RWMol(const ROMol &other, bool quickCopy = false, int confId = -1)
+      : ROMol(other, quickCopy, confId) {
     d_partialBonds.clear();
-    initFromOther(other, quickCopy, confId);
   };
   RWMol &operator=(const RWMol &);
 
@@ -58,7 +58,7 @@ class RWMol : public ROMol {
     \param updateLabel   (optional) if this is true, the new Atom will be
                          our \c activeAtom
 
-    \return the new number of atoms
+    \return the index of the added atom
 
   */
   unsigned int addAtom(bool updateLabel = true);
@@ -72,7 +72,7 @@ class RWMol : public ROMol {
     atom
                          instead of copying it.
 
-    \return the new number of atoms
+    \return the index of the added atom
   */
   unsigned int addAtom(Atom *atom, bool updateLabel = true,
                        bool takeOwnership = false) {
@@ -103,9 +103,11 @@ class RWMol : public ROMol {
     \param atom         the new atom, which will be copied.
     \param updateLabel   (optional) if this is true, the new Atom will be
                          our \c activeAtom
+    \param preserveProps if true preserve the original atom property data
 
   */
-  void replaceAtom(unsigned int idx, Atom *atom, bool updateLabel = false);
+  void replaceAtom(unsigned int idx, Atom *atom, bool updateLabel = false,
+                   bool preserveProps = false);
   //! returns a pointer to the highest-numbered Atom
   Atom *getLastAtom() { return getAtomWithIdx(getNumAtoms() - 1); };
   //! returns a pointer to the "active" Atom
@@ -206,6 +208,16 @@ class RWMol : public ROMol {
 
   //! removes a bond from the molecule
   void removeBond(unsigned int beginAtomIdx, unsigned int endAtomIdx);
+
+  //! replaces a particular Bond
+  /*!
+    \param idx          the index of the Bond to replace
+    \param bond         the new bond, which will be copied.
+    \param preserveProps if true preserve the original bond property data    
+
+  */
+  void replaceBond(unsigned int idx, Bond *bond, bool preserveProps=false);
+
   //@}
 
   //! removes all atoms, bonds, properties, bookmarks, etc.
@@ -214,11 +226,10 @@ class RWMol : public ROMol {
     d_bondBookmarks.clear();
     d_graph.clear();
     d_confs.clear();
-    if (dp_props) {
-      dp_props->reset();
-      STR_VECT computed;
-      dp_props->setVal(detail::computedPropName, computed);
-    }
+    dp_props.reset();
+    STR_VECT computed;
+    dp_props.setVal(RDKit::detail::computedPropName, computed);
+    numBonds = 0;
     if (dp_ringInfo) dp_ringInfo->reset();
   };
 

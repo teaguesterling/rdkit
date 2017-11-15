@@ -11,9 +11,12 @@
 
 #include <iostream>
 #include <fstream>
+
+#include <RDGeneral/BoostStartInclude.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/lexical_cast.hpp>
+#include <RDGeneral/BoostEndInclude.h>
 
 #include <RDGeneral/Invariant.h>
 #include <RDGeneral/RDLog.h>
@@ -29,8 +32,11 @@
 
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Descriptors/Crippen.h>
+#include <GraphMol/Descriptors/Property.h>
+
 #include <GraphMol/PeriodicTable.h>
 #include <GraphMol/atomic_data.h>
+#include <GraphMol/Descriptors/USRDescriptor.h>
 
 #include <DataStructs/BitVects.h>
 #include <DataStructs/BitOps.h>
@@ -65,6 +71,9 @@ void test2() {
   calcCrippenDescriptors(*mol, logp, mr);
   TEST_ASSERT(feq(logp, 0.6361));
   TEST_ASSERT(feq(mr, 6.7310));
+  // check singleton functions
+  TEST_ASSERT(calcClogP(*mol) == logp);
+  TEST_ASSERT(calcMR(*mol) == mr);
   // check that caching works:
   calcCrippenDescriptors(*mol, logp, mr);
   TEST_ASSERT(feq(logp, 0.6361));
@@ -356,10 +365,10 @@ void testLipinski1() {
   // Figure out which rotatable bond version we are using
   std::string rot_prop = StrictRotProp;
   {
-    const bool sanitize=true;
-    ROMol *test_mol = SmilesToMol("CC(C)(C)c1cc(O)c(cc1O)C(C)(C)C", 0, sanitize);
-    if (calcNumRotatableBonds(*test_mol) == 2)
-      rot_prop = NonStrictRotProp;
+    const bool sanitize = true;
+    ROMol *test_mol =
+        SmilesToMol("CC(C)(C)c1cc(O)c(cc1O)C(C)(C)C", 0, sanitize);
+    if (calcNumRotatableBonds(*test_mol) == 2) rot_prop = NonStrictRotProp;
     delete test_mol;
   }
   while (!suppl.atEnd()) {
@@ -455,7 +464,7 @@ void testLipinski1() {
                 << " using stored sd prop " << rot_prop << std::endl;
     }
     TEST_ASSERT(oVal == nVal);
-    
+
     delete mol;
   }
 
@@ -1309,10 +1318,17 @@ void testHallKierAlpha() {
                         << std::endl;
 
   {
-    std::string sdata[] = {
-        "C=O", "CCC1(CC)C(=O)NC(=O)N(C)C1=O", "OCC(O)C(O)C(O)C(O)CO",
-        "OCC1OC(O)C(O)C(O)C1O", "Fc1c[nH]c(=O)[nH]c1=O", "OC1CNC(C(=O)O)C1",
-        "CCCc1[nH]c(=S)[nH]c(=O)c1", "CN(CCCl)CCCl", "CBr", "CI", "EOS"};
+    std::string sdata[] = {"C=O",
+                           "CCC1(CC)C(=O)NC(=O)N(C)C1=O",
+                           "OCC(O)C(O)C(O)C(O)CO",
+                           "OCC1OC(O)C(O)C(O)C1O",
+                           "Fc1c[nH]c(=O)[nH]c1=O",
+                           "OC1CNC(C(=O)O)C1",
+                           "CCCc1[nH]c(=S)[nH]c(=O)c1",
+                           "CN(CCCl)CCCl",
+                           "CBr",
+                           "CI",
+                           "EOS"};
     double ddata[] = {
         -0.3300, -1.3900, -0.2400, -0.2400, -1.3900,
         -0.6100, -0.9000, 0.5400,  0.480,   0.730,
@@ -1336,9 +1352,9 @@ void testKappa1() {
   BOOST_LOG(rdErrorLog) << "    Test calculation of Kappa1." << std::endl;
 
   {
-    std::string sdata[] = {"C12CC2C3CC13", "C1CCC12CC2", "C1CCCCC1", "CCCCCC",
-                           "CCC(C)C1CCC(C)CC1", "CC(C)CC1CCC(C)CC1",
-                           "CC(C)C1CCC(C)CCC1", "EOS"};
+    std::string sdata[] = {
+        "C12CC2C3CC13",      "C1CCC12CC2",        "C1CCCCC1",          "CCCCCC",
+        "CCC(C)C1CCC(C)CC1", "CC(C)CC1CCC(C)CC1", "CC(C)C1CCC(C)CCC1", "EOS"};
     double ddata[] = {2.344, 3.061, 4.167, 6.000, 9.091, 9.091, 9.091};
     unsigned int idx = 0;
     while (sdata[idx] != "EOS") {
@@ -1359,12 +1375,30 @@ void testKappa2() {
   BOOST_LOG(rdErrorLog) << "    Test calculation of Kappa2." << std::endl;
 
   {
-    std::string sdata[] = {
-        "[C+2](C)(C)(C)(C)(C)C", "[C+](C)(C)(C)(C)(CC)", "C(C)(C)(C)(CCC)",
-        "CC(C)CCCC", "CCCCCCC", "CCCCCC", "CCCCCCC", "C1CCCC1", "C1CCCC1C",
-        "C1CCCCC1", "C1CCCCCC1", "CCCCC", "CC=CCCC", "C1=CN=CN1", "c1ccccc1",
-        "c1cnccc1", "n1ccncc1", "CCCCF", "CCCCCl", "CCCCBr",
-        "CCC(C)C1CCC(C)CC1", "CC(C)CC1CCC(C)CC1", "CC(C)C1CCC(C)CCC1", "EOS"};
+    std::string sdata[] = {"[C+2](C)(C)(C)(C)(C)C",
+                           "[C+](C)(C)(C)(C)(CC)",
+                           "C(C)(C)(C)(CCC)",
+                           "CC(C)CCCC",
+                           "CCCCCCC",
+                           "CCCCCC",
+                           "CCCCCCC",
+                           "C1CCCC1",
+                           "C1CCCC1C",
+                           "C1CCCCC1",
+                           "C1CCCCCC1",
+                           "CCCCC",
+                           "CC=CCCC",
+                           "C1=CN=CN1",
+                           "c1ccccc1",
+                           "c1cnccc1",
+                           "n1ccncc1",
+                           "CCCCF",
+                           "CCCCCl",
+                           "CCCCBr",
+                           "CCC(C)C1CCC(C)CC1",
+                           "CC(C)CC1CCC(C)CC1",
+                           "CC(C)C1CCC(C)CCC1",
+                           "EOS"};
     double ddata[] = {0.667000, 1.240000, 2.344400, 4.167000, 6.000000,
                       5.000000, 6.000000, 1.440000, 1.633000, 2.222000,
                       3.061000, 4.000000, 4.740000, 0.884000, 1.606000,
@@ -1488,16 +1522,14 @@ void testMQNs() {
     unsigned int tgt[42] = {98, 0,  4,  0, 0,  1,  0,  3,  9, 5, 4, 124, 29, 3,
                             0,  66, 35, 0, 25, 30, 21, 2,  2, 0, 0, 6,   12, 6,
                             0,  70, 26, 0, 0,  0,  2,  16, 0, 0, 0, 0,   10, 5};
-
     // Figure out which rotatable bond version we are using
     //  and update the test accordingly
     {
-      const bool sanitize=true;
-      ROMol *test_mol = SmilesToMol("CC(C)(C)c1cc(O)c(cc1O)C(C)(C)C", 0, sanitize);
-      if (calcNumRotatableBonds(*test_mol) == 2)
-        tgt[18] = 26;
+      const bool sanitize = true;
+      ROMol *test_mol =
+          SmilesToMol("CC(C)(C)c1cc(O)c(cc1O)C(C)(C)C", 0, sanitize);
+      if (calcNumRotatableBonds(*test_mol) == 2) tgt[18] = 26;
     }
-
     std::vector<unsigned int> accum(42, 0);
 
     std::string fName = getenv("RDBASE");
@@ -1808,6 +1840,259 @@ void testGitHubIssue694() {
   BOOST_LOG(rdErrorLog) << "  done" << std::endl;
 }
 
+void testProperties() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog) << "    Testing Properties and KitchenSink"
+                        << std::endl;
+
+  {
+    std::vector<std::string> all_names = Properties::getAvailableProperties();
+
+    Properties sink;
+    std::vector<std::string> names = sink.getPropertyNames();
+
+    TEST_ASSERT(names == all_names);
+
+    RWMol *mol;
+    mol = SmilesToMol("C1CCC2(C1)CC1CCC2CC1");
+    std::vector<double> props = sink.computeProperties(*mol);
+
+    std::vector<double> res;
+    BOOST_FOREACH (std::string prop, all_names) {
+      std::vector<std::string> props;
+      props.push_back(prop);
+      Properties property(props);
+      std::vector<double> computedProps = property.computeProperties(*mol);
+      TEST_ASSERT(computedProps.size() == 1);
+      res.push_back(computedProps[0]);
+    }
+
+    TEST_ASSERT(props == res);
+    delete mol;
+  }
+  {
+    std::vector<std::string> names;
+    names.push_back("NumSpiroAtoms");
+    names.push_back("NumBridgeheadAtoms");
+    Properties sink(names);
+    std::vector<std::string> sink_names = sink.getPropertyNames();
+    TEST_ASSERT(names == sink_names);
+    std::vector<double> res;
+    res.push_back(1.);
+    res.push_back(2.);
+
+    RWMol *mol;
+    mol = SmilesToMol("C1CCC2(C1)CC1CCC2CC1");
+    TEST_ASSERT(mol);
+    // Test annotation as well
+    std::vector<double> props = sink.computeProperties(*mol, true);
+
+    TEST_ASSERT(props == res);
+    TEST_ASSERT(mol->getProp<double>("NumSpiroAtoms") == 1.);
+    TEST_ASSERT(mol->getProp<double>("NumBridgeheadAtoms") == 2.);
+    delete mol;
+
+    mol = SmilesToMol("C1CCC2(C1)CC1CCC2CC1");
+    TEST_ASSERT(mol);
+    // Test annotation as well
+    sink.annotateProperties(*mol);
+    TEST_ASSERT(mol->getProp<double>("NumSpiroAtoms") == 1.);
+    TEST_ASSERT(mol->getProp<double>("NumBridgeheadAtoms") == 2.);
+  }
+
+  {
+    try {
+      std::vector<std::string> names;
+      names.push_back("FakeName");
+      Properties sink(names);
+      TEST_ASSERT(0);  // should throw
+    } catch (KeyErrorException) {
+      BOOST_LOG(rdErrorLog) << "---Caught keyerror (bad property name)---"
+                            << std::endl;
+    }
+  }
+}
+
+void testPropertyQueries() {
+  RWMol *mol;
+  mol = SmilesToMol("C1CCC2(C1)CC1CCC2CC1");
+  {
+    PROP_RANGE_QUERY *query = makePropertyRangeQuery("exactmw", 50, 300);
+    TEST_ASSERT(query->Match(*mol));
+    delete query;
+  }
+  {
+    PROP_RANGE_QUERY *query = makePropertyRangeQuery("exactmw", 1000, 10300);
+    TEST_ASSERT(!query->Match(*mol));
+    delete query;
+  }
+
+  {
+    // these leak..
+    TEST_ASSERT(
+        makePropertyQuery<PROP_EQUALS_QUERY>("exactmw", calcExactMW(*mol))
+            ->Match(*mol));
+    TEST_ASSERT(makePropertyQuery<PROP_EQUALS_QUERY>("NumHBA", calcNumHBA(*mol))
+                    ->Match(*mol));
+    TEST_ASSERT(makePropertyQuery<PROP_EQUALS_QUERY>("lipinskiHBA",
+                                                     calcLipinskiHBA(*mol))
+                    ->Match(*mol));
+  }
+}
+
+void testStereoCounting() {
+  const bool debugParse = false;
+  const bool sanitize = false;
+  ROMol *m = SmilesToMol("NC(C)(F)C(=O)O", debugParse, sanitize);
+  TEST_ASSERT(!m->hasProp(common_properties::_StereochemDone));
+
+  std::vector<std::string> names;
+  names.push_back("NumAtomStereoCenters");
+  names.push_back("NumUnspecifiedAtomStereoCenters");
+  Properties prop(names);
+
+  try {
+    prop.computeProperties(*m);
+    TEST_ASSERT(0);  // didn't catch exception
+  } catch (ValueErrorException) {
+    BOOST_LOG(rdErrorLog) << "---Caught stereo value error---" << std::endl;
+  }
+
+  delete m;
+  m = SmilesToMol("NC(C)(F)C(=O)O", sanitize);
+  std::vector<double> res = prop.computeProperties(*m);
+  TEST_ASSERT(res[0] == 1);
+  TEST_ASSERT(res[1] == 1);
+}
+
+void testUSRDescriptor() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog) << "    Test USR Descriptor" << std::endl;
+  std::vector<double> descriptor(12);
+
+  // no conformers
+  ROMol *mol = SmilesToMol("C1CCCCC1");
+  bool ok = false;
+  try {
+    USR(*mol, descriptor);
+  } catch (ConformerException &e) {
+    ok = true;
+  }
+  TEST_ASSERT(ok);
+
+  // number of atoms < 3
+  mol = SmilesToMol("CC");
+  ok = false;
+  try {
+    USR(*mol, descriptor);
+  } catch (ValueErrorException &e) {
+    ok = true;
+  }
+  TEST_ASSERT(ok);
+
+  // DESCRIPTOR
+  // comparing to results produced by Adrian Schreyer's code
+  // http://hg.adrianschreyer.eu/usrcat/src/70e075d93cd25370e7ef93301d0e28d49a0851c2/usrcat/geometry.py?at=default
+  double refValues[12] = {2.37938524,  0.62181927, -0.89089872, 2.63773456,
+                          1.1577952,   -0.6937349, 3.38248245,  1.59816952,
+                          -0.72933115, 3.38248245, 1.59816952,  -0.72933115};
+  std::vector<double> refUSR(refValues,
+                             refValues + sizeof(refValues) / sizeof(double));
+  std::string rdbase = getenv("RDBASE");
+  std::string fname1 =
+      rdbase + "/Code/GraphMol/Descriptors/test_data/cyclohexane.mol";
+  mol = MolFileToMol(fname1, true, false, true);
+  std::vector<double> myUSR(12);
+  USR(*mol, myUSR);
+  for (unsigned int i = 0; i < myUSR.size(); ++i) {
+    TEST_ASSERT(feq(myUSR[i], refUSR[i]));
+  }
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+
+void testUSRScore() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog) << "    Test USR Score" << std::endl;
+  // SCORE
+  // descriptors and reference score from JCC (2007), 28, 1711-1723.
+  double m1[12] = {4.44, 2.98,  1.04,   4.55, 4.70,  0.23,
+                   8.30, 16.69, -22.97, 7.37, 15.64, 0.51};
+  double m2[12] = {4.39, 3.11,  1.36,   4.50, 4.44,  0.09,
+                   8.34, 16.78, -23.20, 7.15, 16.52, 0.13};
+  std::vector<double> d1(m1, m1 + sizeof(m1) / sizeof(double));
+  std::vector<double> d2(m2, m2 + sizeof(m2) / sizeof(double));
+  std::vector<double> weights(1, 1.0);
+  TEST_ASSERT(feq(calcUSRScore(d1, d2, weights), 0.812, 0.001));
+
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+
+void testUSRCATDescriptor() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog) << "    Test USRCAT Descriptor" << std::endl;
+  std::vector<double> descriptor(12);
+
+  // no conformers
+  ROMol *mol = SmilesToMol("C1CCCCC1");
+  bool ok = false;
+  try {
+    USR(*mol, descriptor);
+  } catch (ConformerException &e) {
+    ok = true;
+  }
+  TEST_ASSERT(ok);
+
+  // number of atoms < 3
+  mol = SmilesToMol("CC");
+  ok = false;
+  try {
+    USR(*mol, descriptor);
+  } catch (ValueErrorException &e) {
+    ok = true;
+  }
+  TEST_ASSERT(ok);
+
+  // DESCRIPTOR
+  // comparing to results produced by Adrian Schreyer's code
+  // http://hg.adrianschreyer.eu/usrcat/src/70e075d93cd2?at=default
+  double refValues[60] = {
+      2.37938524, 0.62181927, -0.89089872, 2.63773456, 1.1577952,  -0.6937349,
+      3.38248245, 1.59816952, -0.72933115, 3.38248245, 1.59816952, -0.72933115,
+      1.50000000, 0.00000000, -0.77827171, 1.86602540, 1.00893468, -0.89059233,
+      3.02358914, 1.02718486, -0.64081261, 3.02358914, 1.02718486, -0.64081261,
+      0.00000000, 0.00000000, 0.00000000,  0.00000000, 0.00000000, 0.00000000,
+      0.00000000, 0.00000000, 0.00000000,  0.00000000, 0.00000000, 0.00000000,
+      0.00000000, 0.00000000, 0.00000000,  0.00000000, 0.00000000, 0.00000000,
+      0.00000000, 0.00000000, 0.00000000,  0.00000000, 0.00000000, 0.00000000,
+      0.00000000, 0.00000000, 0.00000000,  0.00000000, 0.00000000, 0.00000000,
+      0.00000000, 0.00000000, 0.00000000,  0.00000000, 0.00000000, 0.00000000};
+
+  std::vector<double> refUSR(refValues,
+                             refValues + sizeof(refValues) / sizeof(double));
+  std::string rdbase = getenv("RDBASE");
+  std::string fname1 =
+      rdbase + "/Code/GraphMol/Descriptors/test_data/cyclohexane.mol";
+  mol = MolFileToMol(fname1, true, false, true);
+  std::vector<std::vector<unsigned int> > atomIds;
+  std::vector<double> myUSR(12);
+  USRCAT(*mol, myUSR, atomIds);
+  for (unsigned int i = 0; i < myUSR.size(); ++i) {
+    TEST_ASSERT(feq(myUSR[i], refUSR[i]));
+  }
+
+  atomIds.resize(4);
+  unsigned int h[6] = {0, 1, 2, 3, 4, 5};
+  std::vector<unsigned int> hydrophobic(h,
+                                        h + sizeof(h) / sizeof(unsigned int));
+  atomIds[0] = hydrophobic;
+  USRCAT(*mol, myUSR, atomIds);
+  for (unsigned int i = 0; i < myUSR.size(); ++i) {
+    TEST_ASSERT(feq(myUSR[i], refUSR[i]));
+  }
+
+  BOOST_LOG(rdErrorLog) << "  done" << std::endl;
+}
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 //
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
@@ -1844,4 +2129,8 @@ int main() {
   testGitHubIssue463();
   testSpiroAndBridgeheads();
   testGitHubIssue694();
+  testProperties();
+  testPropertyQueries();
+  testStereoCounting();
+  testUSRDescriptor();
 }

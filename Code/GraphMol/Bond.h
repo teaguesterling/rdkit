@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2001-2014 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2001-2017 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -14,9 +14,10 @@
 #include <iostream>
 
 // Ours
-// FIX: grn...
+#include <RDGeneral/Invariant.h>
 #include <Query/QueryObjects.h>
 #include <RDGeneral/types.h>
+#include <RDGeneral/RDProps.h>
 #include <GraphMol/details.h>
 #include <boost/foreach.hpp>
 
@@ -43,7 +44,7 @@ typedef boost::shared_ptr<Atom> ATOM_SPTR;
           clients who need to store extra data on Bond objects.
 
 */
-class Bond {
+class Bond : public RDProps {
   friend class RWMol;
   friend class ROMol;
 
@@ -97,8 +98,10 @@ class Bond {
     STEREOANY,       // intentionally unspecified
     // -- Put any true specifications about this point so
     // that we can do comparisons like if(bond->getStereo()>Bond::STEREOANY)
-    STEREOZ,  // Z double bond
-    STEREOE,  // E double bond
+    STEREOZ,     // Z double bond
+    STEREOE,     // E double bond
+    STEREOCIS,   // cis double bond
+    STEREOTRANS  // trans double bond
   } BondStereo;
 
   Bond();
@@ -143,7 +146,10 @@ class Bond {
   bool getIsConjugated() const { return df_isConjugated; };
 
   //! returns a reference to the ROMol that owns this Bond
-  ROMol &getOwningMol() const { return *dp_mol; };
+  ROMol &getOwningMol() const {
+    PRECONDITION(dp_mol, "no owner");
+    return *dp_mol;
+  };
   //! sets our owning molecule
   void setOwningMol(ROMol *other);
   //! sets our owning molecule
@@ -271,9 +277,39 @@ class Bond {
   BondDir getBondDir() const { return static_cast<BondDir>(d_dirTag); };
 
   //! sets our stereo code
-  void setStereo(BondStereo what) { d_stereo = what; };
+  /*!
+      STEREONONE, STEREOANY, STEREOE and STEREOZ can be set without
+      neighboring atoms specified in getStereoAtoms since they are
+      defined by the topology of the molecular graph. In order to set
+      STEREOCIS or STEREOTRANS the neighboring atoms must be set first
+      (using setStereoBonds()) to know what atoms are being considered.
+
+      <b>Notes:</b>
+        - MolOps::findPotentialStereoBonds can be used to set
+          getStereoAtoms before setting CIS/TRANS
+  */
+  void setStereo(BondStereo what) {
+    PRECONDITION(what <= STEREOE || getStereoAtoms().size() == 2,
+                 "Stereo atoms should be specified before specifying CIS/TRANS "
+                 "bond stereochemistry")
+    d_stereo = what;
+  };
   //! returns our stereo code
   BondStereo getStereo() const { return static_cast<BondStereo>(d_stereo); };
+
+  //! sets the atoms to be considered as reference points for bond stereo
+  /*!
+      These do not necessarily need to be the highest 'ranking' atoms
+      like CIP stereo requires. They can be any arbitrary atoms
+      neighboring the begin and end atoms of this bond
+      respectively. STEREOCIS or STEREOTRANS is then set relative to
+      only these atoms.
+
+      If CIP rankings are desired, use
+      MolOps::findPotentialStereoBonds, but this is a more costly
+      function as it takes the whole molecule topology into account.
+  */
+  void setStereoAtoms(unsigned int bgnIdx, unsigned int endIdx);
 
   //! returns the indices of our stereo atoms
   const INT_VECT &getStereoAtoms() const {
@@ -287,141 +323,6 @@ class Bond {
     if (!dp_stereoAtoms) dp_stereoAtoms = new INT_VECT();
     return *dp_stereoAtoms;
   };
-
-  // ------------------------------------
-  //  Local Property Dict functionality
-  //  FIX: at some point this stuff should go in a mixin class
-  // ------------------------------------
-  //! returns a list with the names of our \c properties
-  STR_VECT getPropList() const { return dp_props->keys(); }
-
-  //! sets a \c property value
-  /*!
-     \param key the name under which the \c property should be stored.
-         If a \c property is already stored under this name, it will be
-         replaced.
-     \param val the value to be stored
-     \param computed (optional) allows the \c property to be flagged
-         \c computed.
-   */
-  template <typename T>
-  void setProp(const char *key, T val, bool computed = false) const {
-    // if(!dp_props) dp_props = new Dict();
-    std::string what(key);
-    setProp(what, val, computed);
-  }
-  //! \overload
-  template <typename T>
-  void setProp(const std::string &key, T val, bool computed = false) const {
-    // setProp(key.c_str(),val);
-    if (computed) {
-      STR_VECT compLst;
-      getPropIfPresent(detail::computedPropName, compLst);
-      if (std::find(compLst.begin(), compLst.end(), key) == compLst.end()) {
-        compLst.push_back(key);
-        dp_props->setVal(detail::computedPropName, compLst);
-      }
-    }
-    dp_props->setVal(key, val);
-  }
-
-  //! allows retrieval of a particular property value
-  /*!
-
-     \param key the name under which the \c property should be stored.
-         If a \c property is already stored under this name, it will be
-         replaced.
-     \param res a reference to the storage location for the value.
-
-     <b>Notes:</b>
-       - if no \c property with name \c key exists, a KeyErrorException will be
-     thrown.
-       - the \c boost::lexical_cast machinery is used to attempt type
-     conversions.
-         If this fails, a \c boost::bad_lexical_cast exception will be thrown.
-
-  */
-  template <typename T>
-  void getProp(const char *key, T &res) const {
-    PRECONDITION(dp_props, "getProp called on empty property dict");
-    dp_props->getVal(key, res);
-  }
-  //! \overload
-  template <typename T>
-  void getProp(const std::string &key, T &res) const {
-    PRECONDITION(dp_props, "getProp called on empty property dict");
-    dp_props->getVal(key, res);
-  }
-
-  //! \Overload
-  template <typename T>
-  T getProp(const char *key) const {
-    return dp_props->getVal<T>(key);
-  }
-  //! \overload
-  template <typename T>
-  T getProp(const std::string &key) const {
-    return dp_props->getVal<T>(key);
-  }
-
-  //! returns whether or not we have a \c property with name \c key
-  //!  and assigns the value if we do
-
-  template <typename T>
-  bool getPropIfPresent(const char *key, T &res) const {
-    return dp_props->getValIfPresent(key, res);
-  }
-  //! \overload
-  template <typename T>
-  bool getPropIfPresent(const std::string &key, T &res) const {
-    return dp_props->getValIfPresent(key, res);
-  }
-
-  //! returns whether or not we have a \c property with name \c key
-  bool hasProp(const char *key) const {
-    if (!dp_props) return false;
-    return dp_props->hasVal(key);
-  };
-  //! \overload
-  bool hasProp(const std::string &key) const {
-    if (!dp_props) return false;
-    return dp_props->hasVal(key);
-  };
-
-  //! clears the value of a \c property
-  /*!
-     <b>Notes:</b>
-       - if no \c property with name \c key exists, a KeyErrorException
-         will be thrown.
-       - if the \c property is marked as \c computed, it will also be removed
-         from our list of \c computedProperties
-  */
-  void clearProp(const char *key) const {
-    std::string what(key);
-    clearProp(what);
-  };
-  //! \overload
-  void clearProp(const std::string &key) const {
-    STR_VECT compLst;
-    if (getPropIfPresent(detail::computedPropName, compLst)) {
-      STR_VECT_I svi = std::find(compLst.begin(), compLst.end(), key);
-      if (svi != compLst.end()) {
-        compLst.erase(svi);
-        dp_props->setVal(detail::computedPropName, compLst);
-      }
-    }
-    dp_props->clearVal(key);
-  }
-
-  //! clears all of our \c computed \c properties
-  void clearComputedProps() const {
-    STR_VECT compLst;
-    if (getPropIfPresent(detail::computedPropName, compLst)) {
-      BOOST_FOREACH (const std::string &sv, compLst) { dp_props->clearVal(sv); }
-      compLst.clear();
-      dp_props->setVal(detail::computedPropName, compLst);
-    }
-  }
 
   //! calculates any of our lazy \c properties
   /*!
@@ -443,7 +344,6 @@ class Bond {
   atomindex_t d_index;
   atomindex_t d_beginAtomIdx, d_endAtomIdx;
   ROMol *dp_mol;
-  Dict *dp_props;
   INT_VECT *dp_stereoAtoms;
 
   void initBond();

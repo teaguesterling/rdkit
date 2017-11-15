@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (c) 2007-2014, Novartis Institutes for BioMedical Research Inc.
+//  Copyright (c) 2007-2017, Novartis Institutes for BioMedical Research Inc.
 //  All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -102,8 +101,8 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
     for (ROMol::AtomIterator atomIt = (*molIter)->beginAtoms();
          atomIt != (*molIter)->endAtoms(); ++atomIt) {
       int mapNum;
-      if ((*atomIt)
-              ->getPropIfPresent(common_properties::molAtomMapNumber, mapNum)) {
+      if ((*atomIt)->getPropIfPresent(common_properties::molAtomMapNumber,
+                                      mapNum)) {
         thisMolMapped = true;
         if (std::find(mapNumbersSeen.begin(), mapNumbersSeen.end(), mapNum) !=
             mapNumbersSeen.end()) {
@@ -150,8 +149,8 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
     for (ROMol::AtomIterator atomIt = (*molIter)->beginAtoms();
          atomIt != (*molIter)->endAtoms(); ++atomIt) {
       int mapNum;
-      if ((*atomIt)
-              ->getPropIfPresent(common_properties::molAtomMapNumber, mapNum)) {
+      if ((*atomIt)->getPropIfPresent(common_properties::molAtomMapNumber,
+                                      mapNum)) {
         thisMolMapped = true;
         bool seenAlready =
             std::find(productNumbersSeen.begin(), productNumbersSeen.end(),
@@ -214,7 +213,11 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
             queries.push_back((*qIter).get());
           }
           if (query->getDescription() == "AtomFormalCharge") {
-            if ((*atomIt)->hasProp(common_properties::_QueryFormalCharge)) {
+            int qval;
+            if ((*atomIt)->getPropIfPresent(
+                    common_properties::_QueryFormalCharge, qval) &&
+                qval !=
+                    static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal()) {
               if (!silent) {
                 BOOST_LOG(rdWarningLog)
                     << "atom " << (*atomIt)->getIdx() << " in product "
@@ -222,11 +225,16 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
               }
               numWarnings++;
             } else {
-              (*atomIt)->setProp(common_properties::_QueryFormalCharge,
-                                 ((const ATOM_EQUALS_QUERY *)query)->getVal());
+              (*atomIt)->setProp(
+                  common_properties::_QueryFormalCharge,
+                  static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal());
             }
           } else if (query->getDescription() == "AtomHCount") {
-            if ((*atomIt)->hasProp(common_properties::_QueryHCount)) {
+            int qval;
+            if ((*atomIt)->getPropIfPresent(common_properties::_QueryHCount,
+                                            qval) &&
+                qval !=
+                    static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal()) {
               if (!silent) {
                 BOOST_LOG(rdWarningLog)
                     << "atom " << (*atomIt)->getIdx() << " in product "
@@ -234,11 +242,16 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
               }
               numWarnings++;
             } else {
-              (*atomIt)->setProp(common_properties::_QueryHCount,
-                                 ((const ATOM_EQUALS_QUERY *)query)->getVal());
+              (*atomIt)->setProp(
+                  common_properties::_QueryHCount,
+                  static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal());
             }
           } else if (query->getDescription() == "AtomMass") {
-            if ((*atomIt)->hasProp(common_properties::_QueryMass)) {
+            int qval;
+            if ((*atomIt)->getPropIfPresent(common_properties::_QueryMass,
+                                            qval) &&
+                qval !=
+                    static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal()) {
               if (!silent) {
                 BOOST_LOG(rdWarningLog)
                     << "atom " << (*atomIt)->getIdx() << " in product "
@@ -246,12 +259,17 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
               }
               numWarnings++;
             } else {
-              (*atomIt)->setProp(common_properties::_QueryMass,
-                                 ((const ATOM_EQUALS_QUERY *)query)->getVal() /
-                                     massIntegerConversionFactor);
+              (*atomIt)->setProp(
+                  common_properties::_QueryMass,
+                  static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal() /
+                      massIntegerConversionFactor);
             }
           } else if (query->getDescription() == "AtomIsotope") {
-            if ((*atomIt)->hasProp(common_properties::_QueryIsotope)) {
+            int qval;
+            if ((*atomIt)->getPropIfPresent(common_properties::_QueryIsotope,
+                                            qval) &&
+                qval !=
+                    static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal()) {
               if (!silent) {
                 BOOST_LOG(rdWarningLog)
                     << "atom " << (*atomIt)->getIdx() << " in product "
@@ -259,8 +277,9 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
               }
               numWarnings++;
             } else {
-              (*atomIt)->setProp(common_properties::_QueryIsotope,
-                                 ((const ATOM_EQUALS_QUERY *)query)->getVal());
+              (*atomIt)->setProp(
+                  common_properties::_QueryIsotope,
+                  static_cast<const ATOM_EQUALS_QUERY *>(query)->getVal());
             }
           }
         }
@@ -297,7 +316,8 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
 bool isMoleculeReactantOfReaction(const ChemicalReaction &rxn, const ROMol &mol,
                                   unsigned int &which) {
   if (!rxn.isInitialized()) {
-    throw ChemicalReactionException("initMatchers() must be called first");
+    throw ChemicalReactionException(
+        "initReactantMatchers() must be called first");
   }
   which = 0;
   for (MOL_SPTR_VECT::const_iterator iter = rxn.beginReactantTemplates();
@@ -318,7 +338,8 @@ bool isMoleculeReactantOfReaction(const ChemicalReaction &rxn,
 bool isMoleculeProductOfReaction(const ChemicalReaction &rxn, const ROMol &mol,
                                  unsigned int &which) {
   if (!rxn.isInitialized()) {
-    throw ChemicalReactionException("initMatchers() must be called first");
+    throw ChemicalReactionException(
+        "initReactantMatchers() must be called first");
   }
   which = 0;
   for (MOL_SPTR_VECT::const_iterator iter = rxn.beginProductTemplates();
@@ -339,7 +360,8 @@ bool isMoleculeProductOfReaction(const ChemicalReaction &rxn,
 bool isMoleculeAgentOfReaction(const ChemicalReaction &rxn, const ROMol &mol,
                                unsigned int &which) {
   if (!rxn.isInitialized()) {
-    throw ChemicalReactionException("initMatchers() must be called first");
+    throw ChemicalReactionException(
+        "initReactantMatchers() must be called first");
   }
   which = 0;
   for (MOL_SPTR_VECT::const_iterator iter = rxn.beginAgentTemplates();
@@ -375,10 +397,11 @@ bool isMoleculeAgentOfReaction(const ChemicalReaction &rxn, const ROMol &mol) {
 void addRecursiveQueriesToReaction(
     ChemicalReaction &rxn, const std::map<std::string, ROMOL_SPTR> &queries,
     const std::string &propName,
-    std::vector<std::vector<std::pair<unsigned int, std::string> > > *
-        reactantLabels) {
+    std::vector<std::vector<std::pair<unsigned int, std::string> > >
+        *reactantLabels) {
   if (!rxn.isInitialized()) {
-    throw ChemicalReactionException("initMatchers() must be called first");
+    throw ChemicalReactionException(
+        "initReactantMatchers() must be called first");
   }
 
   if (reactantLabels != NULL) {
@@ -556,7 +579,8 @@ bool getMappedAtoms(T &rIt, std::map<int, const Atom *> &mappedAtoms) {
 VECT_INT_VECT getReactingAtoms(const ChemicalReaction &rxn,
                                bool mappedAtomsOnly) {
   if (!rxn.isInitialized()) {
-    throw ChemicalReactionException("initMatchers() must be called first");
+    throw ChemicalReactionException(
+        "initReactantMatchers() must be called first");
   }
   VECT_INT_VECT res;
   res.resize(rxn.getNumReactantTemplates());
@@ -646,18 +670,14 @@ void ChemicalReaction::removeUnmappedProductTemplates(
   res_productTemplates.clear();
 }
 
-void ChemicalReaction::removeAgentTemplates(
-    MOL_SPTR_VECT *targetVector)
-{
-  if(targetVector){
-    for(MOL_SPTR_VECT::iterator iter = beginAgentTemplates();
-          iter != endAgentTemplates(); ++iter){
+void ChemicalReaction::removeAgentTemplates(MOL_SPTR_VECT *targetVector) {
+  if (targetVector) {
+    for (MOL_SPTR_VECT::iterator iter = beginAgentTemplates();
+         iter != endAgentTemplates(); ++iter) {
       targetVector->push_back(*iter);
     }
   }
   m_agentTemplates.clear();
 }
-
-
 
 }  // end of RDKit namespace

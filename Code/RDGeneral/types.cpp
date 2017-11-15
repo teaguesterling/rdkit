@@ -1,7 +1,5 @@
-// $Id$
 //
-//                 Copyright 2001-2006
-//                   Rational Discovery LLC
+//  Copyright 2001-2016 Greg Landrum and Rational Discovery LLC
 //
 //  @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -14,6 +12,10 @@
 #include "types.h"
 
 namespace RDKit {
+  namespace detail {
+  const std::string computedPropName = "__computedProps";
+  }
+
 namespace common_properties {
 const std::string TWOD = "2D";
 const std::string BalabanJ = "BalabanJ";
@@ -48,6 +50,7 @@ const std::string _SmilesStart = "_SmilesStart";
 const std::string _StereochemDone = "_StereochemDone";
 const std::string _TraversalBondIndexOrder = "_TraversalBondIndexOrder";
 const std::string _TraversalRingClosureBond = "_TraversalRingClosureBond";
+const std::string _TraversalStartPoint = "_TraversalStartPoint";
 const std::string _TriposAtomType = "_TriposAtomType";
 const std::string _Unfinished_SLN_ = "_Unfinished_SLN_";
 const std::string _UnknownStereo = "_UnknownStereo";
@@ -93,6 +96,8 @@ const std::string numArom = "numArom";
 const std::string origNoImplicit = "origNoImplicit";
 const std::string ringMembership = "ringMembership";
 const std::string smilesSymbol = "smilesSymbol";
+const std::string atomLabel = "atomLabel";
+const std::string internalRgroupSmiles = "internalRgroupSmiles";
 }  // end common_properties
 
 const double MAX_DOUBLE = std::numeric_limits<double>::max();

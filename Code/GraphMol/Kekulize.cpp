@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2001-2009 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2001-2017 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -203,6 +202,7 @@ bool kekulizeWorker(RWMol &mol, const INT_VECT &allAtms,
   INT_DEQUE astack;
   INT_INT_DEQ_MAP options;
   int lastOpt = -1;
+  boost::dynamic_bitset<> localBondsAdded(mol.getNumBonds());
 
   // ok the algorithm goes something like this
   // - start with an atom that has been marked aromatic before
@@ -306,6 +306,7 @@ bool kekulizeWorker(RWMol &mol, const INT_VECT &allAtms,
 
         // add them to the list of bonds to which have been made double
         dBndAdds[bnd->getIdx()] = 1;
+        localBondsAdded[bnd->getIdx()] = 1;
 
         // if this is an atom we previously visted and picked we
         // simply tried a different option now, overwrite the options
@@ -347,6 +348,13 @@ bool kekulizeWorker(RWMol &mol, const INT_VECT &allAtms,
           // mol.debugMol(std::cerr);
           numBT++;
         } else {
+          // undo any remaining changes we made while here
+          // this was github #962
+          for (unsigned int bidx = 0; bidx < mol.getNumBonds(); ++bidx) {
+            if (localBondsAdded[bidx]) {
+              mol.getBondWithIdx(bidx)->setBondType(Bond::SINGLE);
+            }
+          }
           return false;
         }
       }  // end of else try to backtrack
@@ -460,7 +468,12 @@ void kekulizeFused(RWMol &mol, const VECT_INT_VECT &arings,
     // number of backTracks) and we still need to backtrack
     // can't kekulize this thing
     std::ostringstream errout;
-    errout << "Can't kekulize mol " << std::endl;
+    errout << "Can't kekulize mol.";
+    errout << "  Unkekulized atoms:";
+    for (unsigned int i = 0; i < nats; ++i) {
+      if (dBndCands[i]) errout << " " << i;
+    }
+    errout << std::endl;
     std::string msg = errout.str();
     BOOST_LOG(rdErrorLog) << msg << std::endl;
     throw MolSanitizeException(msg);
@@ -499,17 +512,41 @@ void Kekulize(RWMol &mol, bool markAtomsBonds, unsigned int maxBackTracks) {
   //       - getBondType return aromatic
   // - all aromatic atoms return true for "getIsAromatic"
 
-  // first find the all the simple rings in the molecule
+  // first find the all the simple rings in the molecule that are not
+  // completely composed of dummy atoms
   VECT_INT_VECT arings;
-  if (mol.getRingInfo()->isInitialized()) {
-    arings = mol.getRingInfo()->atomRings();
+  boost::dynamic_bitset<> dummyAts(mol.getNumAtoms());
+  for (ROMol::AtomIterator atit = mol.beginAtoms(); atit != mol.endAtoms();
+       ++atit) {
+    if (!(*atit)->getAtomicNum()) dummyAts[(*atit)->getIdx()] = 1;
+  }
+  if (dummyAts.any()) {
+    VECT_INT_VECT allrings;
+    if (mol.getRingInfo()->isInitialized()) {
+      allrings = mol.getRingInfo()->atomRings();
+    } else {
+      MolOps::findSSSR(mol, allrings);
+    }
+    arings.reserve(allrings.size());
+    BOOST_FOREACH (INT_VECT &ring, allrings) {
+      BOOST_FOREACH (int ai, ring) {
+        if (!dummyAts[ai]) {
+          arings.push_back(ring);
+          break;
+        }
+      }
+    }
   } else {
-    MolOps::findSSSR(mol, arings);
+    if (mol.getRingInfo()->isInitialized()) {
+      arings = mol.getRingInfo()->atomRings();
+    } else {
+      MolOps::findSSSR(mol, arings);
+    }
   }
 
   VECT_INT_VECT brings;
-  brings = mol.getRingInfo()->bondRings();
-  // RingUtils::convertToBonds(arings, brings, mol);
+  // brings = mol.getRingInfo()->bondRings();
+  RingUtils::convertToBonds(arings, brings, mol);
 
   // make a the neighbor map for the rings i.e. a ring is a
   // neighbor to another candidate ring if it shares at least

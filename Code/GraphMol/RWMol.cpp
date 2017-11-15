@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2003-2010 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2003-2016 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -31,6 +30,7 @@ RWMol &RWMol::operator=(const RWMol &other) {
   if (this != &other) {
     this->clear();
     d_partialBonds.clear();
+    numBonds = 0;
     initFromOther(other, false, -1);
   }
   return *this;
@@ -127,15 +127,40 @@ unsigned int RWMol::addAtom(bool updateLabel) {
   return rdcast<unsigned int>(which);
 }
 
-void RWMol::replaceAtom(unsigned int idx, Atom *atom_pin, bool updateLabel) {
+void RWMol::replaceAtom(unsigned int idx, Atom *atom_pin, bool updateLabel,
+                        bool preserveProps) {
   RDUNUSED_PARAM(updateLabel);
   PRECONDITION(atom_pin, "bad atom passed to replaceAtom");
-  URANGE_CHECK(idx, getNumAtoms() - 1);
+  URANGE_CHECK(idx, getNumAtoms());
   Atom *atom_p = atom_pin->copy();
   atom_p->setOwningMol(this);
   atom_p->setIdx(idx);
   MolGraph::vertex_descriptor vd = boost::vertex(idx, d_graph);
+  if (preserveProps) {
+    const bool replaceExistingData = false;
+    atom_p->updateProps(*d_graph[vd].get(), replaceExistingData);
+  }
   d_graph[vd].reset(atom_p);
+  // FIX: do something about bookmarks
+};
+
+void RWMol::replaceBond(unsigned int idx, Bond *bond_pin, bool preserveProps) {
+  PRECONDITION(bond_pin, "bad bond passed to replaceBond");
+  URANGE_CHECK(idx, getNumBonds());
+  BOND_ITER_PAIR bIter = getEdges();
+  for (unsigned int i = 0; i < idx; i++) ++bIter.first;
+  BOND_SPTR obond = d_graph[*(bIter.first)];
+  Bond *bond_p = bond_pin->copy();
+  bond_p->setOwningMol(this);
+  bond_p->setIdx(idx);
+  bond_p->setBeginAtomIdx(obond->getBeginAtomIdx());
+  bond_p->setEndAtomIdx(obond->getEndAtomIdx());
+  if (preserveProps) {
+    const bool replaceExistingData = false;
+    bond_p->updateProps( *d_graph[*(bIter.first)].get(), replaceExistingData );
+  }
+
+  d_graph[*(bIter.first)].reset(bond_p);
   // FIX: do something about bookmarks
 };
 
@@ -246,8 +271,8 @@ void RWMol::removeAtom(Atom *atom) {
 
 unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
                             Bond::BondType bondType) {
-  URANGE_CHECK(atomIdx1, getNumAtoms() - 1);
-  URANGE_CHECK(atomIdx2, getNumAtoms() - 1);
+  URANGE_CHECK(atomIdx1, getNumAtoms());
+  URANGE_CHECK(atomIdx2, getNumAtoms());
   PRECONDITION(atomIdx1 != atomIdx2, "attempt to add self-bond");
   PRECONDITION(!(boost::edge(atomIdx1, atomIdx2, d_graph).second),
                "bond already exists");
@@ -269,8 +294,9 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
   MolGraph::edge_descriptor which;
   boost::tie(which, ok) = boost::add_edge(atomIdx1, atomIdx2, d_graph);
   d_graph[which].reset(b);
-  unsigned int res = rdcast<unsigned int>(boost::num_edges(d_graph));
-  b->setIdx(res - 1);
+  // unsigned int res = rdcast<unsigned int>(boost::num_edges(d_graph));
+  ++numBonds;
+  b->setIdx(numBonds - 1);
   b->setBeginAtomIdx(atomIdx1);
   b->setEndAtomIdx(atomIdx2);
 
@@ -282,7 +308,7 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
     dp_ringInfo->reset();
   }
 
-  return res;
+  return numBonds;  // res;
 }
 
 unsigned int RWMol::addBond(Atom *atom1, Atom *atom2, Bond::BondType bondType) {
@@ -296,8 +322,8 @@ unsigned int RWMol::addBond(Atom::ATOM_SPTR atom1, Atom::ATOM_SPTR atom2,
 }
 
 void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
-  URANGE_CHECK(aid1, getNumAtoms() - 1);
-  URANGE_CHECK(aid2, getNumAtoms() - 1);
+  URANGE_CHECK(aid1, getNumAtoms());
+  URANGE_CHECK(aid2, getNumAtoms());
   Bond *bnd = getBondBetweenAtoms(aid1, aid2);
   if (!bnd) return;
   unsigned int idx = bnd->getIdx();
@@ -329,7 +355,7 @@ void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
     if (!obnd) continue;
     obnd->getStereoAtoms().clear();
   }
-  boost::tie(a1, a2) = boost::adjacent_vertices(aid1, d_graph);
+  boost::tie(a1, a2) = boost::adjacent_vertices(aid2, d_graph);
   while (a1 != a2) {
     unsigned int oIdx = rdcast<unsigned int>(*a1);
     ++a1;
@@ -344,19 +370,25 @@ void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
   dp_ringInfo->reset();
 
   // loop over all bonds with higher indices and update their indices
-  for (unsigned int i = idx + 1; i < getNumBonds(); ++i) {
-    getBondWithIdx(i)->setIdx(i - 1);
+  ROMol::EDGE_ITER firstB, lastB;
+  boost::tie(firstB, lastB) = this->getEdges();
+  while (firstB != lastB) {
+    BOND_SPTR bond = (*this)[*firstB];
+    if (bond->getIdx() > idx) {
+      bond->setIdx(bond->getIdx() - 1);
+    }
+    ++firstB;
   }
-
   bnd->setOwningMol(NULL);
 
   MolGraph::vertex_descriptor vd1 = boost::vertex(aid1, d_graph);
   MolGraph::vertex_descriptor vd2 = boost::vertex(aid2, d_graph);
   boost::remove_edge(vd1, vd2, d_graph);
+  --numBonds;
 }
 
 Bond *RWMol::createPartialBond(unsigned int atomIdx1, Bond::BondType bondType) {
-  URANGE_CHECK(atomIdx1, getNumAtoms() - 1);
+  URANGE_CHECK(atomIdx1, getNumAtoms());
 
   Bond *b = new Bond(bondType);
   b->setOwningMol(this);
@@ -367,7 +399,7 @@ Bond *RWMol::createPartialBond(unsigned int atomIdx1, Bond::BondType bondType) {
 unsigned int RWMol::finishPartialBond(unsigned int atomIdx2, int bondBookmark,
                                       Bond::BondType bondType) {
   PRECONDITION(hasBondBookmark(bondBookmark), "no such partial bond");
-  URANGE_CHECK(atomIdx2, getNumAtoms() - 1);
+  URANGE_CHECK(atomIdx2, getNumAtoms());
 
   Bond *bsp = getBondWithBookmark(bondBookmark);
   if (bondType == Bond::UNSPECIFIED) {

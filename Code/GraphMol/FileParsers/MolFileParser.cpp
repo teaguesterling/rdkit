@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2002-2014 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2002-2016 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -8,6 +7,12 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
+#include <RDGeneral/BoostStartInclude.h>
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <RDGeneral/BoostEndInclude.h>
 
 #include "FileParsers.h"
 #include "FileParserUtils.h"
@@ -17,10 +22,6 @@
 #include <RDGeneral/RDLog.h>
 
 #include <fstream>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/tokenizer.hpp>
-#include <boost/algorithm/string/trim.hpp>
 #include <RDGeneral/FileParseException.h>
 #include <RDGeneral/BadFileException.h>
 #include <RDGeneral/LocaleSwitcher.h>
@@ -167,7 +168,7 @@ void ParseOldAtomList(RWMol *mol, const std::string &text, unsigned int line) {
     throw FileParseException(errout.str());
   }
 
-  URANGE_CHECK(idx, mol->getNumAtoms() - 1);
+  URANGE_CHECK(idx, mol->getNumAtoms());
   QueryAtom a(*(mol->getAtomWithIdx(idx)));
 
   ATOM_OR_QUERY *q = new ATOM_OR_QUERY;
@@ -292,11 +293,11 @@ void ParseSGroup2000STYLine(RWMol *mol, const std::string &text,
       errout << "SGroup line too short: '" << text << "' on line " << line;
       throw FileParseException(errout.str());
     }
-#if 0        
+#if 0
         int nbr;
         try {
           nbr = FileParserUtils::toInt(text.substr(spos,4));
-        } 
+        }
         catch (boost::bad_lexical_cast &) {
           std::ostringstream errout;
           errout << "Cannot convert " << text.substr(spos,3) << " to int on line "<<line;
@@ -460,7 +461,8 @@ void ParseSubstitutionCountLine(RWMol *mol, const std::string &text,
           case 6:
             BOOST_LOG(rdWarningLog) << " atom degree query with value 6 found. "
                                        "This will not match degree >6. The MDL "
-                                       "spec says it should.  line: " << line;
+                                       "spec says it should.  line: "
+                                    << line;
             q->setVal(6);
             break;
           default:
@@ -521,7 +523,8 @@ void ParseUnsaturationLine(RWMol *mol, const std::string &text,
           std::ostringstream errout;
           errout << "Value " << count << " is not supported as an unsaturation "
                                          "query (only 0 and 1 are allowed). "
-                                         "line: " << line;
+                                         "line: "
+                 << line;
           throw FileParseException(errout.str());
         }
       }
@@ -782,7 +785,7 @@ void ParseNewAtomList(RWMol *mol, const std::string &text, unsigned int line) {
            << line;
     throw FileParseException(errout.str());
   }
-  URANGE_CHECK(idx, mol->getNumAtoms() - 1);
+  URANGE_CHECK(idx, mol->getNumAtoms());
   QueryAtom *a = 0;
 
   int nQueries;
@@ -810,10 +813,8 @@ void ParseNewAtomList(RWMol *mol, const std::string &text, unsigned int line) {
     if (!i) {
       a = new QueryAtom(*(mol->getAtomWithIdx(idx)));
       // replace the query:
-      Atom::QUERYATOM_QUERY *oq = a->getQuery();
       a->setAtomicNum(atNum);
       a->setQuery(makeAtomNumQuery(atNum));
-      delete oq;
     } else {
       a->expandQuery(makeAtomNumQuery(atNum), Queries::COMPOSITE_OR, true);
     }
@@ -849,7 +850,7 @@ void ParseV3000RGroups(RWMol *mol, Atom *&atom, const std::string &text,
   }
   std::vector<std::string> splitToken;
   std::string resid = text.substr(1, text.size() - 2);
-  boost::split(splitToken, resid, boost::is_any_of(" "));
+  boost::split(splitToken, resid, boost::is_any_of(std::string(" ")));
   if (splitToken.size() < 1) {
     std::ostringstream errout;
     errout << "Bad RGROUPS specification " << text << " on line " << line
@@ -969,7 +970,7 @@ void ParseAtomAlias(RWMol *mol, std::string text, const std::string &nextLine,
            << line;
     throw FileParseException(errout.str());
   }
-  URANGE_CHECK(idx, mol->getNumAtoms() - 1);
+  URANGE_CHECK(idx, mol->getNumAtoms());
   Atom *at = mol->getAtomWithIdx(idx);
   at->setProp(common_properties::molFileAlias, nextLine);
 };
@@ -988,7 +989,7 @@ void ParseAtomValue(RWMol *mol, std::string text, unsigned int line) {
            << line;
     throw FileParseException(errout.str());
   }
-  URANGE_CHECK(idx, mol->getNumAtoms() - 1);
+  URANGE_CHECK(idx, mol->getNumAtoms());
   Atom *at = mol->getAtomWithIdx(idx);
   at->setProp(common_properties::molFileValue,
               text.substr(7, text.length() - 7));
@@ -1016,7 +1017,7 @@ Atom *ParseMolFileAtomLine(const std::string text, RDGeom::Point3D &pos,
     throw FileParseException(errout.str());
   }
   symb = text.substr(31, 3);
-  symb = symb.substr(0, symb.find(' '));
+  boost::trim(symb);
 
   // REVIEW: should we handle missing fields at the end of the line?
   massDiff = 0;
@@ -1061,17 +1062,9 @@ Atom *ParseMolFileAtomLine(const std::string text, RDGeom::Point3D &pos,
         // according to the MDL spec, these match anything
         query->setQuery(makeAtomNullQuery());
       } else if (symb == "Q") {
-        ATOM_OR_QUERY *q = new ATOM_OR_QUERY;
-        q->setDescription("AtomOr");
-        q->setNegation(true);
-        q->addChild(
-            QueryAtom::QUERYATOM_QUERY::CHILD_TYPE(makeAtomNumQuery(6)));
-        q->addChild(
-            QueryAtom::QUERYATOM_QUERY::CHILD_TYPE(makeAtomNumQuery(1)));
-        query->setQuery(q);
+        query->setQuery(makeQAtomQuery());
       } else if (symb == "A") {
-        query->setQuery(makeAtomNumQuery(1));
-        query->getQuery()->setNegation(true);
+        query->setQuery(makeAAtomQuery());
       }
       delete res;
       res = query;
@@ -1963,6 +1956,9 @@ void ParseV3000BondBlock(std::istream *inStream, unsigned int &line,
         bond = new Bond(Bond::AROMATIC);
         bond->setIsAromatic(true);
         break;
+      case 9:
+        bond = new Bond(Bond::DATIVE);
+        break;
       case 0:
         bond = new Bond(Bond::UNSPECIFIED);
         BOOST_LOG(rdWarningLog)
@@ -2007,7 +2003,7 @@ void ParseV3000BondBlock(std::istream *inStream, unsigned int &line,
           q = makeBondNullQuery();
           bond->setQuery(q);
           BOOST_LOG(rdWarningLog) << "unrecognized query bond type, " << bType
-                                  << ", found on line" << line
+                                  << ", found on line " << line
                                   << ". Using an \"any\" query." << std::endl;
         }
         break;
@@ -2458,7 +2454,8 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
       if (nAtoms != 0 || nBonds != 0) {
         std::ostringstream errout;
         errout << "V3000 mol blocks should have 0s in the initial counts line. "
-                  "(line: " << line << ")";
+                  "(line: "
+               << line << ")";
         if (strictParsing) {
           delete res;
           res = NULL;
@@ -2532,19 +2529,8 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
     // sign that chirality ever existed and makes us sad... so first
     // perceive chirality, then remove the Hs and sanitize.
     //
-    // One exception to this (of course, there's always an exception):
-    // DetectAtomStereoChemistry() needs to check the number of
-    // implicit hydrogens on atoms to detect if things can be
-    // chiral. However, if we ask for the number of implicit Hs before
-    // we've called MolOps::cleanUp() on the molecule, we'll get
-    // exceptions for common "weird" cases like a nitro group
-    // mis-represented as -N(=O)=O.  *SO*... we need to call
-    // cleanUp(), then detect the stereochemistry.
-    // (this was Issue 148)
-    //
     const Conformer &conf = res->getConformer();
     if (chiralityPossible) {
-      MolOps::cleanUp(*res);
       DetectAtomStereoChemistry(*res, &conf);
     }
 
@@ -2561,9 +2547,9 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
         // single bond dir flags:
         ClearSingleBondDirFlags(*res);
 
-        // unlike DetectAtomStereoChemistry we call DetectBondStereoChemistry
+        // unlike DetectAtomStereoChemistry we call detectBondStereochemistry
         // here after sanitization because we need the ring information:
-        DetectBondStereoChemistry(*res, &conf);
+        MolOps::detectBondStereochemistry(*res);
       } catch (...) {
         delete res;
         res = NULL;
@@ -2573,7 +2559,7 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
     } else {
       // we still need to do something about double bond stereochemistry
       // (was github issue 337)
-      DetectBondStereoChemistry(*res, &conf);
+      MolOps::detectBondStereochemistry(*res);
     }
 
     if (res->hasProp(common_properties::_NeedsQueryScan)) {

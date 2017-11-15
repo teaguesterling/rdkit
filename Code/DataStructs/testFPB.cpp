@@ -86,6 +86,7 @@ void test1FPBReaderBasics() {
     std::string filename = pathName + "zim.head100.fpb";
     FPBReader fps(filename);
     _basicsTest(fps);
+    fps.cleanup();  // make sure this doesn't cause problems
   }
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
@@ -100,6 +101,7 @@ void test9LazyFPBReaderBasics() {
     std::string filename = pathName + "zim.head100.fpb";
     FPBReader fps(filename, true);
     _basicsTest(fps);
+    fps.cleanup();  // make sure this doesn't cause problems
   }
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
@@ -560,6 +562,31 @@ void test10FPBReaderTverskyNeighbors() {
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
 
+void testGithub1118() {
+  BOOST_LOG(rdInfoLog) << "-----------------------\n Testing github issue "
+                          "1118: deleting non-initialized FPBReader causes seg "
+                          "fault"
+                       << std::endl;
+  std::string pathName = getenv("RDBASE");
+  pathName += "/Code/DataStructs/testData/";
+  {
+    std::string filename = pathName + "zim.head100.fpb";
+    FPBReader *fps = new FPBReader(filename);
+    delete fps;
+  }
+  {
+    FPBReader *fps = new FPBReader();
+    delete fps;
+  }
+  {
+    std::string filename = pathName + "zim.head100.fpb";
+    std::ifstream ifs(filename.c_str());
+    FPBReader *fps = new FPBReader(&ifs, false);
+    delete fps;
+  }
+  BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
+}
+
 int main() {
   RDLog::InitLogs();
 
@@ -576,5 +603,6 @@ int main() {
 
   test9FPBReaderTversky();
   test10FPBReaderTverskyNeighbors();
+  testGithub1118();
   return 0;
 }
